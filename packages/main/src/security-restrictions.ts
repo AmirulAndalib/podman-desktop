@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (C) 2022 Red Hat, Inc.
+ * Copyright (C) 2022-2023 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 
+import { URL } from 'node:url';
+
 import { app, shell } from 'electron';
-import { URL } from 'url';
+
 import { securityRestrictionCurrentHandler } from './security-restrictions-handler.js';
 
 /**
@@ -32,6 +34,7 @@ const ALLOWED_ORIGINS_AND_PERMISSIONS = new Map<
     | 'clipboard-sanitized-write'
     | 'media'
     | 'display-capture'
+    | 'keyboardLock'
     | 'mediaKeySystem'
     | 'geolocation'
     | 'notifications'
@@ -43,6 +46,10 @@ const ALLOWED_ORIGINS_AND_PERMISSIONS = new Map<
     | 'window-management'
     | 'window-placement'
     | 'idle-detection'
+    | 'speaker-selection'
+    | 'storage-access'
+    | 'top-level-storage-access'
+    | 'fileSystem'
     | 'unknown'
   >
 >(

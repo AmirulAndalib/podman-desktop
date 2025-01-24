@@ -19,14 +19,14 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Octokit } from 'octokit';
+import { Octokit } from '@octokit/rest';
 import type { OctokitOptions } from '@octokit/core/dist-types/types';
 
 const CONTOUR_ORG = 'projectcontour';
 const CONTOUR_REPO = 'contour';
 const CONTOUR_DEPLOY_FILE = 'contour.yaml';
 const CONTOUR_DEPLOY_PATH = 'examples/render';
-const CONTOUR_VERSION = 'v1.24.2';
+const CONTOUR_VERSION = 'v1.30.1';
 
 const octokitOptions: OctokitOptions = {};
 if (process.env.GITHUB_TOKEN) {
@@ -74,5 +74,5 @@ async function download(tagVersion: string, repoPath: string, fileName: string):
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 // download the file from the given URL and store the content in destFile
 // particular contour file should be manually added to the repo once downloaded
-// run download script on demand using `yarn --cwd extensions/kind/ run install:contour`
+// run download script on demand using `pnpm --cwd extensions/kind/ run install:contour`
 download(CONTOUR_VERSION, CONTOUR_DEPLOY_PATH, CONTOUR_DEPLOY_FILE);

@@ -1,26 +1,27 @@
-import React from 'react';
-import Layout from '@theme/Layout';
-import Link from '@docusaurus/Link';
 import BrowserOnly from '@docusaurus/BrowserOnly';
-import TailWindThemeSelector from '../components/TailWindThemeSelector';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import Link from '@docusaurus/Link';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 import type { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { faApple, faLinux, faWindows } from '@fortawesome/free-brands-svg-icons';
 import {
   faCertificate,
   faCloudArrowDown,
   faCogs,
-  faGaugeHigh,
-  faPlug,
-  faRocket,
-  faGears,
-  faRotateRight,
   faDiagramProject,
+  faGaugeHigh,
+  faGears,
+  faRocket,
+  faRotateRight,
 } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import Layout from '@theme/Layout';
 import ThemedImage from '@theme/ThemedImage';
-import useBaseUrl from '@docusaurus/useBaseUrl';
+import React from 'react';
 
-function DownloadClientLinks() {
+import PodmanAILabBanner from '../components/PodmanAILabBanner';
+import TailWindThemeSelector from '../components/TailWindThemeSelector';
+
+function DownloadClientLinks(): JSX.Element {
   let operatingSystem = '';
   let varIcon = undefined;
   let url = 'macos'; // Just use macos by default as the url before checking the user agent in case of an odd issue (unable to get userAgent / it's blank / etc.)
@@ -32,7 +33,7 @@ function DownloadClientLinks() {
     varIcon = 'faWindows';
   } else if (userAgent.indexOf('Mac') !== -1) {
     operatingSystem = 'macOS';
-    url = 'macos';
+    // do not need to set url to macos as it is already set
     varIcon = 'faApple';
   } else if (userAgent.indexOf('Linux') !== -1) {
     operatingSystem = 'Linux';
@@ -67,11 +68,13 @@ function DownloadClientLinks() {
     );
   } else {
     mainButton = (
-      <Link
-        className="no-underline hover:no-underline inline-flex text-white hover:text-white bg-indigo-500 border-0 py-2 px-6 focus:outline-none hover:bg-indigo-600 rounded text-lg"
-        to="/downloads">
-        Download Page
-      </Link>
+      <div>
+        <Link
+          className="no-underline hover:no-underline inline-flex text-white hover:text-white bg-purple-500 border-0 py-2 px-6 mt-6 mb-1 focus:outline-none hover:bg-purple-600 rounded text-lg"
+          to="/downloads">
+          Download Page
+        </Link>
+      </div>
     );
   }
 
@@ -83,11 +86,11 @@ function DownloadClientLinks() {
   );
 }
 
-function DownloadGenericLinks() {
+function DownloadGenericLinks(): JSX.Element {
   return (
     <div className="flex justify-center">
       <Link
-        className="no-underline hover:no-underline inline-flex text-white hover:text-white bg-indigo-500 border-0 py-2 px-6 focus:outline-none hover:bg-indigo-600 rounded text-lg"
+        className="no-underline hover:no-underline inline-flex text-white hover:text-white bg-purple-500 border-0 py-2 px-6 mt-6 mb-1 focus:outline-none hover:bg-purple-600 rounded text-lg"
         to="/downloads">
         Download Page
       </Link>
@@ -95,18 +98,19 @@ function DownloadGenericLinks() {
   );
 }
 
-function Hero() {
+function Hero(): JSX.Element {
   return (
     <section className="text-gray-900 dark:text-gray-400 body-font">
       <div className="container mx-auto flex px-5 pb-24 pt-4 items-center justify-center flex-col">
         <div className="text-center lg:w-2/3 w-full bg-hero-pattern bg-no-repeat bg-center">
           <div className="bg-white/30 dark:bg-transparent">
-            <h1 className="title-font sm:text-4xl text-3xl lg:text-6xl mb-8 font-medium text-gray-900 dark:text-white leading-[1.2]">
-              Containers and Kubernetes for application developers
+            <h1 className="title-font text-4xl leading-[3rem] lg:text-5xl lg:leading-[4rem] font-bold text-gray-900 dark:text-white mt-[80px]">
+              Best Free &amp; Open Source Tool for Containers &amp; Kubernetes
             </h1>
-            <p className="text-base md:text-lg">
-              Podman Desktop is an open source graphical tool enabling you to seamlessly work with containers and
-              Kubernetes from your local environment.
+            <p className="text-base font-medium leading-[1.9rem] md:text-lg md:leading-[1.9rem] mt-[88px]">
+              The best free and open source tool for developers to work with containers and Kubernetes. Simplify
+              container management, streamline Kubernetes workflows, and transition from local development to production
+              with ease.
             </p>
             <div className="flex-none">
               {/* With client mode, provides the link to the client browser */}
@@ -130,7 +134,7 @@ function Hero() {
   );
 }
 
-function SectionTitle(props) {
+function SectionTitle(props: Readonly<{ name: string }>): JSX.Element {
   return (
     <div>
       <p className="inline-block px-3 py-px mb-4 text-xs font-semibold tracking-wider text-purple-800 uppercase rounded-full dark:bg-purple-400 bg-purple-400">
@@ -140,7 +144,7 @@ function SectionTitle(props) {
   );
 }
 
-function KeepUpToDate() {
+function KeepUpToDate(): JSX.Element {
   return (
     <section className="text-gray-900 dark:text-gray-400 dark:bg-charcoal-800 bg-zinc-100 body-font">
       <div className="container px-5 py-24 mx-auto flex flex-wrap">
@@ -179,7 +183,7 @@ function KeepUpToDate() {
   );
 }
 
-function Extensibility() {
+function Extensibility(): JSX.Element {
   return (
     <section className="text-gray-900 dark:text-gray-400 dark:bg-charcoal-600 bg-zinc-200 body-font">
       <div className="container px-5 py-24 mx-auto flex flex-wrap">
@@ -187,28 +191,40 @@ function Extensibility() {
           <SectionTitle name="extensibility" />
 
           <h2 className="max-w-lg mb-6 font-sans text-3xl font-light leading-none tracking-tight text-gray-900 dark:text-white sm:text-4xl md:mx-auto">
-            Bring new features with Podman Desktop plug-ins or Docker Desktop Extensions.
+            Bring new features to Podman Desktop with extensions.
           </h2>
         </div>
 
         <div className="flex flex-col w-full text-center">
-          <div className="mx-10">
-            <FontAwesomeIcon size="3x" icon={faPlug} className="ml-2 mb-4 text-gray-900 dark:text-gray-300" />
-          </div>
-
-          <ul className="list-disc list-inside text-center">
-            <li>Container engines are plugged through extension points</li>
-            <li>JavaScript extensions can contribute new behaviour</li>
-            <li>Reuse existing extensions such as Trivy and OpenShift directly in Podman Desktop</li>
-          </ul>
-
           <div className="flex flex-col items-center">
-            <div className="text-left my-4">
-              <p className="-ml-5 text-base">
-                Current Podman Desktop plugins: Podman, Docker, Lima, Kubernetes, and OpenShift Local with the Podman
-                preset.
-              </p>
-            </div>
+            <p className="text-base lg:w-2/3 text-center mx-auto">
+              Podman Desktop is built around extension points. You can easily create a new extension using our pre-made
+              templates, easy-to-use API and UI components. Integrate your own tools into Podman Desktop with ease to
+              enrich with your own developer tools and experiences.
+            </p>
+            <ul className="list-disc list-inside text-center">
+              <li>
+                Explore our{' '}
+                <Link title="catalog of extensions" to="/extensions">
+                  catalog of extensions
+                </Link>
+                .
+              </li>
+              <li>
+                Learn to{' '}
+                <Link title="develop your own extensions" to="/docs/extensions/developing">
+                  develop your own extensions
+                </Link>
+                .
+              </li>
+              <li>
+                Want to use a Docker Desktop extension? Extensions such as{' '}
+                <Link title="trivy" to="https://github.com/aquasecurity/trivy-docker-extension">
+                  Trivy
+                </Link>{' '}
+                work out of the box with Podman Desktop.
+              </li>
+            </ul>
           </div>
 
           <ThemedImage
@@ -246,7 +262,7 @@ function Extensibility() {
   );
 }
 
-function Configure() {
+function Configure(): JSX.Element {
   return (
     <section className="text-gray-900 dark:text-gray-400 dark:bg-charcoal-800 bg-zinc-100 body-font py-24">
       <div className="container px-5 mx-auto flex flex-wrap">
@@ -318,7 +334,7 @@ function Configure() {
   );
 }
 
-function EnterpriseReady() {
+function EnterpriseReady(): JSX.Element {
   return (
     <section className="text-gray-900 dark:text-gray-400 dark:bg-charcoal-600 bg-zinc-200 body-font py-24">
       <div className="container px-5 mx-auto flex flex-wrap">
@@ -375,7 +391,7 @@ function EnterpriseReady() {
   );
 }
 
-function RunAnywhere() {
+function RunAnywhere(): JSX.Element {
   return (
     <section className="text-gray-900 dark:text-gray-400 dark:bg-charcoal-600 bg-zinc-200 body-font">
       <div className="container px-5 py-24 mx-auto flex flex-wrap">
@@ -442,7 +458,7 @@ function RunAnywhere() {
   );
 }
 
-function MainFeatures() {
+function MainFeatures(): JSX.Element {
   return (
     <section className="text-gray-900 dark:text-gray-400 dark:bg-charcoal-800 bg-zinc-100 body-font py-24">
       <div className="container px-5 mx-auto flex flex-wrap">
@@ -553,7 +569,7 @@ function MainFeatures() {
   );
 }
 
-function Pods() {
+function Pods(): JSX.Element {
   return (
     <section className="text-gray-900 dark:text-gray-400 dark:bg-charcoal-600 bg-zinc-200 body-font py-24">
       <div className="container px-5 mx-auto flex flex-wrap">
@@ -647,6 +663,7 @@ export default function Home(): JSX.Element {
       title="Podman Desktop - Containers and Kubernetes"
       description="Podman Desktop - An open source graphical tool for developing on containers and Kubernetes">
       <TailWindThemeSelector />
+      <PodmanAILabBanner />
       <Hero />
       <RunAnywhere />
       <MainFeatures />

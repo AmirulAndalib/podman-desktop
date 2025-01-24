@@ -15,24 +15,27 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
-import * as extensionApi from '@podman-desktop/api';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { getKindPath, getMemTotalInfo } from './util';
+import * as path from 'node:path';
+
+import type { AuditRecord, AuditRequestItems, AuditResult, CancellationToken } from '@podman-desktop/api';
+import * as extensionApi from '@podman-desktop/api';
+// @ts-expect-error ignore type error https://github.com/janl/mustache.js/issues/797
 import mustache from 'mustache';
 import { parseAllDocuments } from 'yaml';
 
-import createClusterConfTemplate from './templates/create-cluster-conf.mustache?raw';
-import type { AuditRecord, AuditResult, CancellationToken, AuditRequestItems } from '@podman-desktop/api';
 import ingressManifests from '/@/resources/contour.yaml?raw';
+
+import createClusterConfTemplate from './templates/create-cluster-conf.mustache?raw';
+import { getKindPath, getMemTotalInfo } from './util';
 
 export function getKindClusterConfig(
   clusterName: string,
   httpHostPort: number,
   httpsHostPort: number,
   controlPlaneImage?: string,
-) {
+): string {
   return mustache.render(createClusterConfTemplate, {
     clusterName: clusterName,
     httpHostPort: httpHostPort,
@@ -47,7 +50,7 @@ function getTags(tags: any[]): any[] {
     if (tag.tag === 'tag:yaml.org,2002:int') {
       const newTag = { ...tag };
       newTag.test = /^(0[0-7][0-7][0-7])$/;
-      newTag.resolve = str => parseInt(str, 8);
+      newTag.resolve = (str: string): number => parseInt(str, 8);
       tags.unshift(newTag);
       break;
     }
@@ -55,7 +58,7 @@ function getTags(tags: any[]): any[] {
   return tags;
 }
 
-export async function setupIngressController(clusterName: string) {
+export async function setupIngressController(clusterName: string): Promise<void> {
   const manifests = parseAllDocuments(ingressManifests, { customTags: getTags });
   await extensionApi.kubernetes.createResources(
     'kind-' + clusterName,
@@ -74,6 +77,14 @@ export async function connectionAuditor(provider: string, items: AuditRequestIte
     records.push({
       type: 'warning',
       record: 'It is recommend to include the @sha256:{image digest} for the image used.',
+    });
+  }
+
+  const configFile = items['kind.cluster.creation.configFile'];
+  if (configFile) {
+    records.push({
+      type: 'warning',
+      record: 'By specifying a config file, all other options will be ignored.',
     });
   }
 
@@ -99,11 +110,17 @@ export async function connectionAuditor(provider: string, items: AuditRequestIte
 export async function createCluster(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   params: { [key: string]: any },
-  logger: extensionApi.Logger,
   kindCli: string,
   telemetryLogger: extensionApi.TelemetryLogger,
+  logger?: extensionApi.Logger,
   token?: CancellationToken,
 ): Promise<void> {
+  // grab config file
+  let configFile;
+  if (params['kind.cluster.creation.configFile']) {
+    configFile = params['kind.cluster.creation.configFile'];
+  }
+
   let clusterName = 'kind';
   if (params['kind.cluster.creation.name']) {
     clusterName = params['kind.cluster.creation.name'];
@@ -115,7 +132,7 @@ export async function createCluster(
     provider = params['kind.cluster.creation.provider'];
   }
 
-  const env = Object.assign({}, process.env);
+  const env = { ...process.env } as { [key: string]: string };
   // add KIND_EXPERIMENTAL_PROVIDER env variable if needed
   if (provider === 'podman') {
     env['KIND_EXPERIMENTAL_PROVIDER'] = 'podman';
@@ -136,7 +153,7 @@ export async function createCluster(
   let ingressController = false;
 
   if (params['kind.cluster.creation.ingress']) {
-    ingressController = params['kind.cluster.creation.ingress'] === 'on';
+    ingressController = params['kind.cluster.creation.ingress'];
   }
 
   // grab custom kind node image if defined
@@ -155,10 +172,11 @@ export async function createCluster(
   await fs.promises.writeFile(tmpFilePath, kindClusterConfig, 'utf8');
 
   // update PATH to include kind
-  env.PATH = getKindPath();
+  env.PATH = getKindPath() ?? '';
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const telemetryOptions: Record<string, any> = {
+    configFile,
     provider,
     httpHostPort,
     httpsHostPort,
@@ -168,17 +186,21 @@ export async function createCluster(
   // now execute the command to create the cluster
   const startTime = performance.now();
   try {
-    await extensionApi.process.exec(kindCli, ['create', 'cluster', '--config', tmpFilePath], { env, logger, token });
+    await extensionApi.process.exec(kindCli, ['create', 'cluster', '--config', configFile ?? tmpFilePath], {
+      env,
+      logger,
+      token,
+    });
     if (ingressController) {
-      logger.log('Creating ingress controller resources');
+      logger?.log('Creating ingress controller resources');
       await setupIngressController(clusterName);
     }
   } catch (error) {
     telemetryOptions.error = error;
-    let errorMessage: string;
+    let errorMessage: string = '';
 
-    if (typeof error === 'object' && 'message' in error) {
-      errorMessage = error.message.toString();
+    if (error && typeof error === 'object' && 'message' in error) {
+      errorMessage = String(error.message);
     } else if (typeof error === 'string') {
       errorMessage = error;
     }

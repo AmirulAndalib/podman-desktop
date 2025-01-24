@@ -26,10 +26,31 @@ export function createListener(
     value?: unknown,
   ) => void,
 ) {
-  return (e: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (e: any): void => {
     // Retrieve the command and expandable within the dataset
     const command = e.target.dataset.command;
     const expandable = e.target.dataset.expandable;
+
+    // if the user click on a a href link containing data-pd-jump-in-page attribute
+    if (e.target instanceof HTMLAnchorElement) {
+      // get a matching attribute ?
+      const hrefId = e.target.getAttribute('data-pd-jump-in-page');
+
+      // get a linked ID
+      if (hrefId) {
+        const matchingElement = document.getElementById(hrefId);
+        if (matchingElement) {
+          matchingElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+            inline: 'nearest',
+          });
+
+          return;
+        }
+      }
+    }
 
     // if the user clicked on the toggle of an expandable section
     if (expandable) {
@@ -39,7 +60,9 @@ export function createListener(
 
     // if the user clicked on a button (new way)
     if (!command && e.target instanceof HTMLButtonElement) {
-      executeButtonCommand(e.target.id);
+      executeButtonCommand(e.target.id).catch((err: unknown) =>
+        console.error(`Error executing command ${e.target.id}`, err),
+      );
       return;
     }
 

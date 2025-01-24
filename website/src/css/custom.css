@@ -8,15 +8,12 @@
 @tailwind components;
 @tailwind utilities;
 
-/* montserrat-regular - latin */
+/* manrope variable font */
 @font-face {
-  font-family: 'Montserrat';
+  font-family: 'Manrope';
   font-style: normal;
   font-weight: normal;
-  src:
-    url('../../static/fonts/montserrat-v25-latin-regular.woff2') format('woff2'),
-    url('../../static/fonts/montserrat-v25-latin-regular.woff') format('woff'),
-    url('../../static/fonts/montserrat-v25-latin-regular.ttf') format('truetype');
+  src: url('../../static/fonts/manrope.ttf') format('truetype');
 }
 
 /* Apply default style for markdown*/
@@ -54,7 +51,7 @@ Apply style on documentation
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-font-family-base: 'Montserrat', sans-serif;
+  --ifm-font-family-base: 'Manrope', sans-serif;
   --ifm-color-primary: #6d28d9;
   --ifm-color-primary-dark: #7c3aed;
   --ifm-color-primary-darker: #5c21ba;
@@ -66,6 +63,7 @@ Apply style on documentation
   --ifm-navbar-background-color: #fff;
   --ifm-navbar-height: 85px;
   --ifm-navbar-shadow: none;
+  --ifm-divider: #e2e2e3;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -78,6 +76,7 @@ Apply style on documentation
   --ifm-color-primary-lighter: #8349df;
   --ifm-color-primary-lightest: #996ae5;
   --ifm-navbar-background-color: #1b1b1d;
+  --ifm-divider: #2e2e32;
 }
 
 .docusaurus-highlight-code-line {
@@ -142,19 +141,68 @@ li.footer__item a svg {
 }
 
 .navbar__item {
-  font-size: 1em;
+  font-size: 0.9em;
 }
 
 .pagination-nav {
   display: none;
 }
 
-@media (min-width: 1200px) {
+/**
+  Using base font color for all links
+ */
+.menu__link {
+  color: var(--ifm-font-color-base) !important;
+}
+
+/**
+  The first level of collapsable should have a left bar
+ */
+.theme-doc-sidebar-item-category-level-1 > .menu__list {
+  border-left: 1px solid var(--ifm-divider);
+  margin-left: var(--ifm-menu-link-padding-horizontal);
+  padding-left: 0px;
+}
+
+/**
+  Decrease the size of the chevron icon from 2rem to 1.5
+ */
+.menu__caret:before {
+  background: var(--ifm-menu-link-sublist-icon) 50% / 1.5rem 1.5rem;
+}
+
+/**
+  Hovering an item should change its color and not create a gray bg
+ */
+.menu__link:hover,
+.menu__list-item-collapsible {
+  color: var(--ifm-color-primary) !important;
+  background-color: transparent !important;
+}
+
+/**
+  We should highlight the active item (only last child)
+ */
+.menu__link--active:not(.menu__link--sublist) {
+  color: var(--ifm-color-primary) !important;
+  background-color: transparent !important;
+}
+
+@media (min-width: 1230px) {
   .navbar__title {
-    font-size: 2em;
+    font-size: 1.7em;
   }
 
   .navbar__item {
-    font-size: 1.2em;
+    font-size: 1em;
   }
+}
+
+.breadcrumbs {
+  display: flex;
+}
+
+.breadcrumbs__item {
+  display: flex;
+  align-items: center;
 }

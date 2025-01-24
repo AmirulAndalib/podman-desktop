@@ -16,11 +16,13 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { Octokit } from '@octokit/rest';
-import { ComposeGitHubReleases } from './compose-github-releases';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+
+import type { Octokit } from '@octokit/rest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+
+import { ComposeGitHubReleases } from './compose-github-releases';
 
 let composeGitHubReleases: ComposeGitHubReleases;
 
@@ -59,6 +61,9 @@ test('expect grab 5 releases', async () => {
   const result = await composeGitHubReleases.grabLatestsReleasesMetadata();
   expect(result).toBeDefined();
   expect(result.length).toBe(5);
+
+  // expect v2.24.0-birthday.10 is not fetched as it's a pre-release
+  expect(result.filter(release => release.label.includes('birthday')).length).toBe(0);
 });
 
 describe('Grab asset id for a given release id', async () => {

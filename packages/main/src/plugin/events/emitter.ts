@@ -1,5 +1,24 @@
+/**********************************************************************
+ * Copyright (C) 2023-2024 Red Hat, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ ***********************************************************************/
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/ban-types */
+/* eslint-disable @typescript-eslint/no-unsafe-function-type */
+
 import type { IDisposable } from '../types/disposable.js';
 
 export type DisposableGroup = { push(disposable: IDisposable): void } | { add(disposable: IDisposable): void };
@@ -7,16 +26,14 @@ export type DisposableGroup = { push(disposable: IDisposable): void } | { add(di
 /**
  * Represents a typed event.
  */
-export interface Event<T> {
-  /**
-   *
-   * @param listener The listener function will be call when the event happens.
-   * @param thisArgs The 'this' which will be used when calling the event listener.
-   * @param disposables An array to which a {{IDisposable}} will be added.
-   * @return a disposable to remove the listener again.
-   */
-  (listener: (e: T) => any, thisArgs?: any, disposables?: DisposableGroup): IDisposable;
-}
+/**
+ *
+ * @param listener The listener function will be call when the event happens.
+ * @param thisArgs The 'this' which will be used when calling the event listener.
+ * @param disposables An array to which a {{IDisposable}} will be added.
+ * @return a disposable to remove the listener again.
+ */
+export type Event<T> = (listener: (e: T) => any, thisArgs?: any, disposables?: DisposableGroup) => IDisposable;
 
 type Callback = (...args: any[]) => any;
 class CallbackList implements Iterable<Callback> {
@@ -24,7 +41,7 @@ class CallbackList implements Iterable<Callback> {
   private _contexts: any[] | undefined;
 
   get length(): number {
-    return this._callbacks?.length || 0;
+    return this._callbacks?.length ?? 0;
   }
 
   public add(callback: Function, context: any = undefined, bucket?: IDisposable[]): void {
@@ -65,13 +82,13 @@ class CallbackList implements Iterable<Callback> {
   }
 
   // tslint:disable-next-line:typedef
-  public [Symbol.iterator]() {
+  public [Symbol.iterator](): IterableIterator<Callback> {
     if (!this._callbacks) {
       return [][Symbol.iterator]();
     }
     const callbacks = this._callbacks.slice(0);
     const contexts = this._contexts?.slice(0);
-    // prettier-ignore
+    // biome-ignore format: off
     return callbacks
       .map(
         (callback, i) =>
@@ -225,7 +242,7 @@ export class Emitter<T = any> {
     }
     const stack = new Error().stack?.split('\n').slice(3).join('\n');
     if (stack) {
-      const count = this._leakingStacks.get(stack) || 0;
+      const count = this._leakingStacks.get(stack) ?? 0;
       this._leakingStacks.set(stack, count + 1);
       return () => this.popLeakingStack(stack);
     }
@@ -236,7 +253,7 @@ export class Emitter<T = any> {
     if (!this._leakingStacks) {
       return;
     }
-    const count = this._leakingStacks.get(stack) || 0;
+    const count = this._leakingStacks.get(stack) ?? 0;
     this._leakingStacks.set(stack, count - 1);
   }
 

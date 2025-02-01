@@ -17,20 +17,22 @@
  ***********************************************************************/
 
 import '@testing-library/jest-dom/vitest';
-import { test, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/svelte';
+
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { get } from 'svelte/store';
+import { router } from 'tinro';
+import { beforeAll, expect, test, vi } from 'vitest';
+
+import { lastPage } from '/@/stores/breadcrumb';
+import { containersInfos } from '/@/stores/containers';
+import type { ContainerInfo } from '/@api/container-info';
 
 import ContainerDetails from './ContainerDetails.svelte';
-import { get } from 'svelte/store';
-import { containersInfos } from '/@/stores/containers';
-import type { ContainerInfo } from '../../../../main/src/plugin/api/container-info';
-
-import { router } from 'tinro';
-import { lastPage } from '/@/stores/breadcrumb';
 
 const listContainersMock = vi.fn();
 
 const getContainerInspectMock = vi.fn();
+const showMessageBoxMock = vi.fn();
 
 const myContainer: ContainerInfo = {
   Id: 'myContainer',
@@ -47,35 +49,39 @@ const myContainer: ContainerInfo = {
   Created: 0,
   Ports: [],
   State: '',
+  ImageBase64RepoTag: '',
 };
 
 const deleteContainerMock = vi.fn();
 const getContributedMenusMock = vi.fn();
 
-vi.mock('xterm', () => {
-  return {
-    Terminal: vi.fn().mockReturnValue({ loadAddon: vi.fn(), open: vi.fn(), write: vi.fn(), clear: vi.fn() }),
-  };
-});
+vi.mock('@xterm/xterm');
+vi.mock('@xterm/addon-search');
+
+const getConfigurationValueMock = vi.fn().mockReturnValue(12);
 
 beforeAll(() => {
-  (window as any).listContainers = listContainersMock;
-  (window as any).deleteContainer = deleteContainerMock;
-  (window as any).getContainerInspect = getContainerInspectMock;
+  Object.defineProperty(window, 'showMessageBox', { value: showMessageBoxMock });
+  Object.defineProperty(window, 'listContainers', { value: listContainersMock });
+  Object.defineProperty(window, 'deleteContainer', { value: deleteContainerMock });
+  Object.defineProperty(window, 'getContainerInspect', { value: getContainerInspectMock });
 
-  (window as any).getConfigurationValue = vi.fn().mockReturnValue(12);
+  Object.defineProperty(window, 'getConfigurationValue', { value: getConfigurationValueMock });
+  Object.defineProperty(window, 'getConfigurationProperties', { value: vi.fn().mockResolvedValue({}) });
 
-  (window as any).logsContainer = vi.fn();
-  (window as any).matchMedia = vi.fn().mockReturnValue({
-    addListener: vi.fn(),
+  Object.defineProperty(window, 'logsContainer', { value: vi.fn() });
+  Object.defineProperty(window, 'matchMedia', {
+    value: vi.fn().mockReturnValue({
+      addListener: vi.fn(),
+    }),
   });
-  (window as any).ResizeObserver = vi.fn().mockReturnValue({ observe: vi.fn(), unobserve: vi.fn() });
+  Object.defineProperty(window, 'ResizeObserver', {
+    value: vi.fn().mockReturnValue({ observe: vi.fn(), unobserve: vi.fn() }),
+  });
 
-  (window as any).getContributedMenus = getContributedMenusMock;
+  Object.defineProperty(window, 'getContributedMenus', { value: getContributedMenusMock });
   getContributedMenusMock.mockImplementation(() => Promise.resolve([]));
 });
-
-beforeEach(() => {});
 
 test('Expect logs when tty is not enabled', async () => {
   router.goto('/');
@@ -137,6 +143,9 @@ test('Expect show tty if container has tty enabled', async () => {
 });
 
 test('Expect redirect to previous page if container is deleted', async () => {
+  getConfigurationValueMock.mockResolvedValue(undefined);
+  // Mock the showMessageBox to return 0 (yes)
+  showMessageBoxMock.mockResolvedValue({ response: 0 });
   router.goto('/');
 
   getContainerInspectMock.mockResolvedValue({
@@ -173,6 +182,9 @@ test('Expect redirect to previous page if container is deleted', async () => {
   // click on delete container button
   const deleteButton = screen.getByRole('button', { name: 'Delete Container' });
   await fireEvent.click(deleteButton);
+
+  // Wait for confirmation modal to disappear after clicking on delete
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
   // check that delete method has been called
   expect(deleteContainerMock).toHaveBeenCalled();

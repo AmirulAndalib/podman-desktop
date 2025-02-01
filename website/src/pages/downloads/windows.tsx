@@ -1,12 +1,12 @@
+import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
+import { faMicrosoft, faWindows } from '@fortawesome/free-brands-svg-icons';
+import { faDownload, faPaste, faTerminal } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import TailWindThemeSelector from '@site/src/components/TailWindThemeSelector';
 import Layout from '@theme/Layout';
 import type { SetStateAction } from 'react';
 import React, { useEffect, useState } from 'react';
-import TailWindThemeSelector from '@site/src/components/TailWindThemeSelector';
-import Link from '@docusaurus/Link';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMicrosoft, faWindows } from '@fortawesome/free-brands-svg-icons';
-import { faDownload, faPaste, faTerminal } from '@fortawesome/free-solid-svg-icons';
 
 async function grabfilenameforWindows(
   setDownloadData: React.Dispatch<
@@ -25,13 +25,13 @@ async function grabfilenameforWindows(
   const jsonContent = await result.json();
   const assets = jsonContent.assets;
   const windowsX64SetupAssets = assets.filter(
-    asset => (asset.name as string).endsWith('-setup-x64.exe') && !asset.name.includes('airgap'),
+    (asset: { name: string }) => (asset.name as string).endsWith('-setup-x64.exe') && !asset.name.includes('airgap'),
   );
   if (windowsX64SetupAssets.length !== 1) {
     throw new Error('Unable to grab setup.exe');
   }
   const windowsArm64SetupAssets = assets.filter(
-    asset => (asset.name as string).endsWith('-setup-arm64.exe') && !asset.name.includes('airgap'),
+    (asset: { name: string }) => (asset.name as string).endsWith('-setup-arm64.exe') && !asset.name.includes('airgap'),
   );
   const setupX64Asset = windowsX64SetupAssets?.[0];
   const setupX64 = setupX64Asset?.browser_download_url;
@@ -39,7 +39,7 @@ async function grabfilenameforWindows(
   const setupArm64 = setupArm64Asset?.browser_download_url;
 
   const binaryOnlyX64WindowsAssets = assets.filter(
-    asset =>
+    (asset: { name: string }) =>
       (asset.name as string).endsWith('x64.exe') &&
       !asset.name.includes('airgap') &&
       asset.name !== setupX64Asset?.name,
@@ -47,7 +47,7 @@ async function grabfilenameforWindows(
   const binaryX64 = binaryOnlyX64WindowsAssets?.[0]?.browser_download_url;
 
   const binaryOnlyArm64WindowsAssets = assets.filter(
-    asset =>
+    (asset: { name: string }) =>
       (asset.name as string).endsWith('arm64.exe') &&
       !asset.name.includes('airgap') &&
       asset.name !== setupArm64Asset?.name,
@@ -56,7 +56,7 @@ async function grabfilenameforWindows(
 
   /* Find Windows installer for restricted environment */
   const windowsX64AirgapSetupAssets = assets.filter(
-    asset =>
+    (asset: { name: string }) =>
       (asset.name as string).endsWith('-setup-x64.exe') &&
       asset.name.includes('airgap') &&
       asset.name !== setupX64Asset?.name,
@@ -65,7 +65,7 @@ async function grabfilenameforWindows(
   const airgapsetupX64 = windowsX64AirgapSetupAssets?.[0]?.browser_download_url;
 
   const windowsArm64AirgapSetupAssets = assets.filter(
-    asset =>
+    (asset: { name: string }) =>
       (asset.name as string).endsWith('-setup-arm64.exe') &&
       asset.name.includes('airgap') &&
       asset.name !== setupArm64Asset?.name,
@@ -96,7 +96,7 @@ export function WindowsDownloads(): JSX.Element {
     airgapsetupArm64: '',
   });
 
-  const copyCliInstructions = async () => {
+  const copyCliInstructions = async (): Promise<void> => {
     await navigator.clipboard.writeText('winget install -e --id RedHat.Podman-Desktop');
   };
 

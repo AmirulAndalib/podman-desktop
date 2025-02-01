@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (C) 2022 Red Hat, Inc.
+ * Copyright (C) 2022-2024 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 
-import { BrowserWindow } from 'electron';
-import * as fs from 'fs';
-import * as os from 'os';
+import { Buffer } from 'node:buffer';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 
 const windows = os.platform() === 'win32';
 export function isWindows(): boolean {
@@ -31,9 +31,6 @@ export function isMac(): boolean {
 const linux = os.platform() === 'linux';
 export function isLinux(): boolean {
   return linux;
-}
-export function findWindow(): Electron.BrowserWindow | undefined {
-  return BrowserWindow.getAllWindows().find(w => !w.isDestroyed());
 }
 
 export const stoppedExtensions = { val: false };
@@ -53,4 +50,12 @@ export function getBase64Image(imagePath: string): string | undefined {
     console.error(`Error while creating base64 image content for ${imagePath}`, error);
   }
   return undefined;
+}
+
+export function requireNonUndefined<T>(obj: T | undefined, message?: string): T {
+  if (obj === undefined) {
+    throw new Error(message ? message : 'Found undefined value.');
+  }
+
+  return obj;
 }

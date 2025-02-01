@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (C) 2022-2023 Red Hat, Inc.
+ * Copyright (C) 2022-2024 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 
-import { writable, type Writable } from 'svelte/store';
-import type { IConfigurationPropertyRecordedSchema } from '../../../main/src/plugin/configuration-registry';
+import { type Writable, writable } from 'svelte/store';
+
+import type {
+  IConfigurationChangeEvent,
+  IConfigurationPropertyRecordedSchema,
+} from '../../../main/src/plugin/configuration-registry';
 import { EventStore } from './event-store';
 
 const windowEvents = ['extensions-started', 'extension-started', 'extension-stopped', 'configuration-changed'];
@@ -47,3 +51,22 @@ export async function fetchConfigurationProperties(): Promise<IConfigurationProp
   }
   return properties;
 }
+
+class ConfigurationChange extends EventTarget {}
+export const onDidChangeConfiguration = new ConfigurationChange();
+
+class ConfigurationChangeEvent extends CustomEvent<IConfigurationChangeEvent> {
+  constructor(detail: IConfigurationChangeEvent) {
+    // use the key of the configuration as event name
+    super(detail.key, { detail });
+  }
+}
+
+export function setupConfigurationChange(): void {
+  // be notified when a specific property is being changed
+  window.events?.receive('onDidChangeConfiguration', (data: unknown) => {
+    onDidChangeConfiguration.dispatchEvent(new ConfigurationChangeEvent(data as IConfigurationChangeEvent));
+  });
+}
+
+setupConfigurationChange();

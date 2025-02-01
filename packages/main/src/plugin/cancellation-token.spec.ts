@@ -16,7 +16,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 
-import { beforeAll, beforeEach, expect, expectTypeOf, test, vi, vitest } from 'vitest';
+import { beforeAll, beforeEach, expect, test, vi, vitest } from 'vitest';
+
 import { CancellationTokenImpl } from './cancellation-token.js';
 import { CancellationTokenRegistry } from './cancellation-token-registry.js';
 
@@ -36,7 +37,7 @@ test('Should return CancellationToken', async () => {
   const tokenSourceId = cancellationTokenRegistry.createCancellationTokenSource();
   const tokenSource = cancellationTokenRegistry.getCancellationTokenSource(tokenSourceId);
   const token = tokenSource.token;
-  expectTypeOf(token).toBeObject();
+  expect(token).toBeDefined();
   expect(token instanceof CancellationTokenImpl).toBe(true);
 });
 

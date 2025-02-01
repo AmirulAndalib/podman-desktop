@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (C) 2023 Red Hat, Inc.
+ * Copyright (C) 2023-2024 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,19 +19,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import * as fs from 'node:fs';
+
+import type { RunResult } from '@podman-desktop/api';
+import * as jsYaml from 'js-yaml';
+import { EventEmitter } from 'stream-json/Assembler.js';
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
+
+import type { ContributionInfo } from '/@api/contribution-info.js';
+
+import * as util from '../util.js';
 import type { ApiSenderType } from './api.js';
+import type { ContainerProviderRegistry } from './container-registry.js';
 import type { DockerExtensionMetadata } from './contribution-manager.js';
 import { ContributionManager } from './contribution-manager.js';
 import type { Directories } from './directories.js';
-import * as jsYaml from 'js-yaml';
-import type { ContainerProviderRegistry } from './container-registry.js';
-import * as util from '../util.js';
-import { Exec } from './util/exec.js';
-import type { RunResult } from '@podman-desktop/api';
-import { EventEmitter } from 'stream-json/Assembler.js';
-import type { ContributionInfo } from './api/contribution-info.js';
 import type { Proxy } from './proxy.js';
+import type { IDisposable } from './types/disposable.js';
+import { Exec } from './util/exec.js';
+
 let contributionManager: TestContributionManager;
 
 let composeFileExample: any;
@@ -42,14 +47,17 @@ const portNumber = 10000;
 
 const eventEmitter = new EventEmitter();
 
-const send = (channel: string, data?: any) => {
+const send = (channel: string, data?: unknown): void => {
   eventEmitter.emit(channel, data);
 };
 
-const receive = (channel: string, func: any) => {
-  eventEmitter.on(channel, data => {
-    func(data);
-  });
+const receive = (channel: string, func: (...args: unknown[]) => void): IDisposable => {
+  eventEmitter.on(channel, func);
+  return {
+    dispose: () => {
+      eventEmitter.off(channel, func);
+    },
+  } as unknown as IDisposable;
 };
 
 const apiSender: ApiSenderType = {
@@ -58,19 +66,19 @@ const apiSender: ApiSenderType = {
 };
 
 class TestContributionManager extends ContributionManager {
-  addContribution(contribution: ContributionInfo) {
+  addContribution(contribution: ContributionInfo): number {
     return this.contributions.push(contribution);
   }
 
-  setStartedContribution(contribId: string, val: boolean) {
+  setStartedContribution(contribId: string, val: boolean): void {
     this.startedContributions.set(contribId, val);
   }
 
-  hasStartedContribution(contribId: string) {
+  hasStartedContribution(contribId: string): boolean {
     return this.startedContributions.has(contribId);
   }
 
-  resetContributions() {
+  resetContributions(): void {
     this.contributions = [];
     this.startedContributions.clear();
   }
@@ -85,6 +93,7 @@ const directories = {
   getPluginsDirectory: () => '/fake-plugins-directory',
   getPluginsScanDirectory: () => '/fake-plugins-scanning-directory',
   getExtensionsStorageDirectory: () => '/fake-extensions-storage-directory',
+  getContributionStorageDir: () => '/fake-contribution-storage-directory',
 } as unknown as Directories;
 
 const proxy = {
@@ -93,7 +102,7 @@ const proxy = {
 
 const exec = new Exec(proxy);
 
-beforeAll(() => {
+beforeEach(() => {
   contributionManager = new TestContributionManager(apiSender, directories, containerProviderRegistry, exec);
 });
 
@@ -106,7 +115,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   contributionManager.resetContributions();
 
-  const logs = (...args: any[]) => {
+  const logs = (...args: any[]): void => {
     consoleLogMock(...args);
     originalConsoleLogMethod(...args);
   };
@@ -136,13 +145,13 @@ test('Should interpret ${DESKTOP_PLUGIN_IMAGE}', async () => {
   };
   const result = await contributionManager.doEnhanceCompose(ociImage, extensionName, portNumber, composeFile);
 
-  expect(result.services['devenv-volumes'].image).toBe(ociImage);
+  expect(result.services['devenv-volumes']?.image).toBe(ociImage);
 });
 
 test('Should add custom labels', async () => {
   const result = await contributionManager.doEnhanceCompose(ociImage, extensionName, portNumber, composeFileExample);
 
-  expect(result.services['devenv-volumes'].labels).toStrictEqual({
+  expect(result.services['devenv-volumes']?.labels).toStrictEqual({
     'com.docker.desktop.extension': 'true',
     'com.docker.desktop.extension.name': 'my-extension',
     'io.podman_desktop.PodmanDesktop.extension': 'true',
@@ -153,16 +162,16 @@ test('Should add custom labels', async () => {
 test('Should add restart policy', async () => {
   const result = await contributionManager.doEnhanceCompose(ociImage, extensionName, portNumber, composeFileExample);
 
-  expect(result.services['devenv-volumes'].deploy?.restart_policy?.condition).toBe('always');
+  expect(result.services['devenv-volumes']?.deploy?.restart_policy?.condition).toBe('always');
 });
 
 test('Should add volumes from', async () => {
   const result = await contributionManager.doEnhanceCompose(ociImage, extensionName, portNumber, composeFileExample);
 
-  expect(result.services['devenv-volumes'].volumes_from).toStrictEqual(['podman-desktop-socket']);
+  expect(result.services['devenv-volumes']?.volumes_from).toStrictEqual(['podman-desktop-socket']);
 
   // check the volume is not added on the podman-desktop-socket service
-  expect(result.services['podman-desktop-socket'].volumes_from).toBeUndefined();
+  expect(result.services['podman-desktop-socket']?.volumes_from).toBeUndefined();
 });
 
 test('Should not add a service to expose port if no socket', async () => {
@@ -173,13 +182,13 @@ test('Should not add a service to expose port if no socket', async () => {
   expect(podmanDesktopService).toBeDefined();
 
   // check new service is exposing the port
-  expect(podmanDesktopService.ports).toBeUndefined();
+  expect(podmanDesktopService?.ports).toBeUndefined();
 
   // check the volumes is mounted
-  expect(podmanDesktopService.volumes).toStrictEqual(['/run/guest-services']);
+  expect(podmanDesktopService?.volumes).toStrictEqual(['/run/guest-services']);
 
   // no socket exposure
-  expect(podmanDesktopService.command).not.toContain('socat');
+  expect(podmanDesktopService?.command).not.toContain('socat');
 });
 
 test('Should add a service to expose port if socket', async () => {
@@ -197,15 +206,15 @@ test('Should add a service to expose port if socket', async () => {
   expect(podmanDesktopService).toBeDefined();
 
   // check new service is exposing the port
-  expect(podmanDesktopService.ports).toStrictEqual(['10000:10000']);
+  expect(podmanDesktopService?.ports).toStrictEqual(['10000:10000']);
 
   // check the volumes is mounted
-  expect(podmanDesktopService.volumes).toStrictEqual(['/run/guest-services']);
+  expect(podmanDesktopService?.volumes).toStrictEqual(['/run/guest-services']);
 
   // socket exposure
-  expect(podmanDesktopService.command).toContain('socat');
+  expect(podmanDesktopService?.command).toContain('socat');
   // socket exposure
-  expect(podmanDesktopService.command).toContain(`/run/guest-services/${socketPath}`);
+  expect(podmanDesktopService?.command).toContain(`/run/guest-services/${socketPath}`);
 });
 
 test('Check invalid port file', async () => {
@@ -601,7 +610,7 @@ describe('waitForRunningState', () => {
   });
 });
 
-test('execComposeCommand', async () => {
+test('execComposeCommand on a non-Windows OS', async () => {
   vi.spyOn(contributionManager, 'findComposeBinary').mockResolvedValue('/my/compose');
 
   // create tuple
@@ -619,6 +628,8 @@ test('execComposeCommand', async () => {
   // mock exec
   vi.spyOn(exec, 'exec').mockResolvedValue({} as RunResult);
 
+  vi.spyOn(util, 'isWindows').mockImplementation(() => false);
+
   // call
   await contributionManager.execComposeCommand('/fake/directory', ['arg1', 'arg2']);
 
@@ -627,6 +638,37 @@ test('execComposeCommand', async () => {
     '/my/compose',
     ['arg1', 'arg2'],
     expect.objectContaining({ env: { DOCKER_HOST: 'unix:///my/socket' }, cwd: '/fake/directory' }),
+  );
+});
+
+test('execComposeCommand on a Windows OS', async () => {
+  vi.spyOn(contributionManager, 'findComposeBinary').mockResolvedValue('/my/compose');
+
+  // create tuple
+  const tuple = [
+    {
+      endpoint: {
+        socketPath: '\\\\.\\pipe\\socket',
+      },
+    },
+    'arg2',
+  ];
+
+  getFirstRunningConnectionMock.mockReturnValue(tuple);
+
+  // mock exec
+  vi.spyOn(exec, 'exec').mockResolvedValue({} as RunResult);
+
+  vi.spyOn(util, 'isWindows').mockImplementation(() => true);
+
+  // call
+  await contributionManager.execComposeCommand('/fake/directory', ['arg1', 'arg2']);
+
+  // check
+  expect(exec.exec).toBeCalledWith(
+    '/my/compose',
+    ['arg1', 'arg2'],
+    expect.objectContaining({ env: { DOCKER_HOST: 'npipe:////./pipe/socket' }, cwd: '/fake/directory' }),
   );
 });
 
@@ -655,4 +697,73 @@ test('delete extension', async () => {
   expect(contributionManager.hasStartedContribution('contrib1')).toBeFalsy();
   expect(initCommand).toBeCalled();
   expect(execComposeCommand).toBeCalledWith('/path/to', ['-p', 'podman-desktop-ext-contrib1', 'down']);
+});
+
+test('init', async () => {
+  vi.mock('node:fs');
+
+  // mock existsSync as always returning true
+  vi.mocked(fs.existsSync).mockReturnValue(true);
+
+  vi.spyOn(contributionManager, 'loadMetadata').mockResolvedValueOnce({
+    name: 'contrib1',
+    version: '1.0.0',
+    publisher: 'aquasec',
+    description: 'Analyze image',
+    ui: {
+      'dashboard-tab': {
+        title: 'Trivy',
+        root: '/ui',
+        src: 'index.html',
+        backend: {
+          socket: 'plugin-trivy.sock',
+        },
+      },
+    },
+  });
+
+  vi.spyOn(contributionManager, 'loadMetadata').mockResolvedValueOnce({
+    name: 'contrib2',
+    ui: {
+      'dashboard-tab': {
+        title: 'OpenShift',
+        root: '/ui',
+        src: 'index.html',
+      },
+    },
+  });
+
+  vi.spyOn(contributionManager, 'startVMs').mockResolvedValue(undefined);
+
+  vi.spyOn(contributionManager, 'loadBase64Icon').mockResolvedValue('icon');
+
+  vi.mocked(fs.promises.readdir).mockResolvedValue([
+    { isDirectory: () => true, name: 'contrib1' } as fs.Dirent,
+    { isDirectory: () => true, name: 'contrib2' } as fs.Dirent,
+  ]);
+
+  // initialize the contribution manager
+  await contributionManager.init();
+
+  // now list contributions
+  const contributions = contributionManager.listContributions();
+
+  // should have 2
+  expect(contributions.length).toBe(2);
+
+  const openshiftExt = contributions.find(c => c.name === 'OpenShift');
+  expect(openshiftExt).toBeDefined();
+
+  const trivyExt = contributions.find(c => c.name === 'Trivy');
+  expect(trivyExt).toBeDefined();
+
+  expect(openshiftExt?.id).toBe('dashboard-tab');
+  expect(openshiftExt?.version).toBe('');
+  expect(openshiftExt?.publisher).toBe('');
+  expect(openshiftExt?.description).toBe('');
+
+  expect(trivyExt?.id).toBe('dashboard-tab');
+  expect(trivyExt?.version).toBe('1.0.0');
+  expect(trivyExt?.publisher).toBe('aquasec');
+  expect(trivyExt?.description).toBe('Analyze image');
 });

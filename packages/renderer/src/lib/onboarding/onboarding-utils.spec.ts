@@ -16,31 +16,34 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 import '@testing-library/jest-dom/vitest';
-import { test, expect, vi, beforeAll } from 'vitest';
+
+import { beforeAll, expect, test, vi } from 'vitest';
+
+import type { OnboardingInfo, OnboardingStep } from '/@api/onboarding';
+
 import { ContextUI } from '../context/context';
+import { ContextKeyExpr, type ContextKeyExpression } from '../context/contextKey';
 import {
+  type ActiveOnboardingStep,
   cleanSetup,
   isOnboardingCompleted,
   isOnboardingsSetupCompleted,
-  normalizeOnboardingWhenClause,
-  type ActiveOnboardingStep,
   isStepCompleted,
-  updateOnboardingStepStatus,
+  normalizeOnboardingWhenClause,
   replaceContextKeyPlaceholders,
   replaceContextKeyPlaceHoldersByRegex,
+  updateOnboardingStepStatus,
 } from './onboarding-utils';
-import type { OnboardingInfo, OnboardingStep } from '../../../../main/src/plugin/api/onboarding';
-import { ContextKeyExpr, type ContextKeyExpression } from '../context/contextKey';
 
 const deserialize = vi.fn();
 
 // fake the window.events object
 beforeAll(() => {
   const resetOnboarding = vi.fn();
-  (window as any).resetOnboarding = resetOnboarding;
+  Object.defineProperty(window, 'resetOnboarding', { value: resetOnboarding });
   const updateStepState = vi.fn();
-  (window as any).updateStepState = updateStepState;
-  (ContextKeyExpr as any).deserialize = deserialize;
+  Object.defineProperty(window, 'updateStepState', { value: updateStepState });
+  Object.defineProperty(ContextKeyExpr, 'deserialize', { value: deserialize });
 });
 
 test('Expect to have the when clause normalized if contains an onboardingContext value', async () => {
@@ -66,6 +69,9 @@ test('Expect to have the when clause returned in its original form if it does no
 test('Expect cleanContext to remove onboarding values from context and reset the state of all steps', async () => {
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       {
         id: 'id1',
@@ -98,6 +104,9 @@ test('Expect cleanContext to remove onboarding values from context and reset the
 test('Expect that the onboarding is not completed if atleast one step has not been completed', async () => {
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       {
         id: 'id1',
@@ -121,6 +130,9 @@ test('Expect that the onboarding is not completed if atleast one step has not be
 test('Expect that the onboarding is not completed if its status is not set', async () => {
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       {
         id: 'id1',
@@ -144,6 +156,9 @@ test('Expect that the onboarding is not completed if its status is not set', asy
 test('Expect that the onboarding is completed if all its steps are completed and its status is set', async () => {
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       {
         id: 'id1',
@@ -167,6 +182,9 @@ test('Expect that the onboarding is completed if all its steps are completed and
 test('Expect the setup of multiple onboardings to be completed if all have been completed', async () => {
   const onboarding1: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       {
         id: 'id1',
@@ -185,6 +203,9 @@ test('Expect the setup of multiple onboardings to be completed if all have been 
   };
   const onboarding2: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       {
         id: 'id1',
@@ -208,6 +229,9 @@ test('Expect the setup of multiple onboardings to be completed if all have been 
 test('Expect the setup of multiple onboardings to be uncompleted if atleast one have not been completed', async () => {
   const onboarding1: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       {
         id: 'id1',
@@ -226,6 +250,9 @@ test('Expect the setup of multiple onboardings to be uncompleted if atleast one 
   };
   const onboarding2: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       {
         id: 'id1',
@@ -255,6 +282,9 @@ test('Expect the step to be considered NOT completed if the active step have not
 
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       step,
       {
@@ -285,6 +315,9 @@ test('Expect the step to be completed if the step is considered completed if onl
 
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       step,
       {
@@ -315,6 +348,9 @@ test('Expect the step to NOT be completed if the step is considered completed if
 
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       step,
       {
@@ -345,6 +381,9 @@ test('Expect the step to be completed if the step is considered completed if a c
 
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       step,
       {
@@ -380,6 +419,9 @@ test('Expect the step to NOT be completed if the step is considered completed if
 
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       step,
       {
@@ -415,6 +457,9 @@ test('Expect the step to NOT be completed if the step is considered completed if
 
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       step,
       {
@@ -449,6 +494,9 @@ test('Expect the step to NOT be completed if the step is considered completed if
 
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       step,
       {
@@ -479,6 +527,9 @@ test('Expect the step to be completed if the negated context value is true', asy
 
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       step,
       {
@@ -513,6 +564,9 @@ test('Expect the step status to be updated but not the onboarding as it is not t
 
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [
       step,
       {
@@ -542,6 +596,9 @@ test('Expect the step and the onboarding status to be updated as it is the last 
 
   const onboarding: OnboardingInfo = {
     extension: 'id',
+    name: 'name',
+    displayName: 'displayName',
+    icon: 'icon',
     steps: [step],
     title: 'onboarding',
     status: undefined,

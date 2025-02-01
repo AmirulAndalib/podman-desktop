@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (C) 2023 Red Hat, Inc.
+ * Copyright (C) 2023-2024 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-useless-escape */
 
-import { test, expect, describe, vi, beforeAll } from 'vitest';
-
 import { promises } from 'node:fs';
+
+import { beforeAll, describe, expect, test, vi } from 'vitest';
+
 import { EnvfileParser } from './env-file-parser.js';
 
 let envfileParser: TestEnvfileParser;
@@ -31,11 +32,11 @@ beforeAll(() => {
 });
 
 class TestEnvfileParser extends EnvfileParser {
-  public async parseEnvFile(envFile: string): Promise<string[]> {
+  public override async parseEnvFile(envFile: string): Promise<string[]> {
     return super.parseEnvFile(envFile);
   }
 
-  public envFileCleanEntry(entry: string): { key: string | undefined; value: string | undefined } {
+  public override envFileCleanEntry(entry: string): { key: string | undefined; value: string | undefined } {
     return super.envFileCleanEntry(entry);
   }
 }
@@ -149,6 +150,13 @@ describe('check values', () => {
     const result = envfileParser.envFileCleanEntry(item);
     expect(result.key).toBe('VAR');
     expect(result.value).toBe(`{"hello": "json"}`);
+  });
+
+  test('simple value containing equal signs', () => {
+    const item = `VAR=dGhpcyBpcyBqdXN0IGEgdGVzdA==`;
+    const result = envfileParser.envFileCleanEntry(item);
+    expect(result.key).toBe('VAR');
+    expect(result.value).toBe(`dGhpcyBpcyBqdXN0IGEgdGVzdA==`);
   });
 });
 

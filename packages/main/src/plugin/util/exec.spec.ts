@@ -16,17 +16,17 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 
-import type { Mock } from 'vitest';
-import { expect, describe, test, vi, beforeEach, afterEach } from 'vitest';
-import { getInstallationPath, macosExtraPath, Exec } from './exec.js';
-import * as util from '../../util.js';
-import type { ChildProcessWithoutNullStreams } from 'child_process';
-import { spawn } from 'child_process';
+import type { ChildProcess, ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import type { Readable } from 'node:stream';
-import type { Proxy } from '../proxy.js';
-import * as sudo from 'sudo-prompt';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import * as sudo from 'sudo-prompt';
+import type { Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+
+import * as util from '../../util.js';
+import type { Proxy } from '../proxy.js';
+import { Exec, getInstallationPath, macosExtraPath } from './exec.js';
 
 // Mock sudo-prompt exec to resolve everytime.
 vi.mock('sudo-prompt', async () => {
@@ -49,6 +49,8 @@ vi.mock('child_process', () => {
   };
 });
 
+const setEncodingMock = vi.fn();
+
 describe('exec', () => {
   const proxy: Proxy = {
     isEnabled: vi.fn().mockReturnValue(false),
@@ -65,26 +67,27 @@ describe('exec', () => {
     const command = 'echo';
     const args = ['Hello, World!'];
 
-    const on: any = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
       if (event === 'data') {
         cb('Hello, World!');
       }
     }) as unknown as Readable;
     const spawnMock = vi.mocked(spawn).mockReturnValue({
-      stdout: { on, setEncoding: vi.fn() },
-      stderr: { on, setEncoding: vi.fn() },
+      stdout: { on, setEncoding: setEncodingMock },
+      stderr: { on, setEncoding: setEncodingMock },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
-        if (event === 'exit') {
+        if (event === 'close') {
           cb(0);
         }
       }),
-    } as any);
+    } as unknown as ChildProcess);
 
     const { stdout } = await exec.exec(command, args);
 
     expect(spawnMock).toHaveBeenCalledWith(command, args, { env: expect.any(Object) });
     expect(stdout).toBeDefined();
     expect(stdout).toContain('Hello, World!');
+    expect(setEncodingMock).toBeCalledWith('utf8');
   });
 
   test('should run the command with custom cwd and resolve with the result', async () => {
@@ -92,20 +95,20 @@ describe('exec', () => {
     const args = ['Hello, World!'];
     const cwd = '/tmp';
 
-    const on: any = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
       if (event === 'data') {
         cb('Hello, World!');
       }
     }) as unknown as Readable;
     const spawnMock = vi.mocked(spawn).mockReturnValue({
-      stdout: { on, setEncoding: vi.fn() },
-      stderr: { on, setEncoding: vi.fn() },
+      stdout: { on, setEncoding: setEncodingMock },
+      stderr: { on, setEncoding: setEncodingMock },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
-        if (event === 'exit') {
+        if (event === 'close') {
           cb(0);
         }
       }),
-    } as any);
+    } as unknown as ChildProcess);
 
     const { stdout } = await exec.exec(command, args, { cwd });
 
@@ -113,28 +116,30 @@ describe('exec', () => {
     expect(spawnMock).toHaveBeenCalledWith(command, args, expect.objectContaining({ cwd: cwd }));
     expect(stdout).toBeDefined();
     expect(stdout).toContain('Hello, World!');
+    expect(setEncodingMock).toBeCalledWith('utf8');
   });
 
   test('should reject with an error when the command execution returns non-zero exit code', async () => {
     const command = 'nonexistent-command';
 
-    const on: any = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
       if (event === 'data') {
         cb('');
       }
     }) as unknown as Readable;
     vi.mocked(spawn).mockReturnValue({
-      stdout: { on, setEncoding: vi.fn() },
-      stderr: { on, setEncoding: vi.fn() },
+      stdout: { on, setEncoding: setEncodingMock },
+      stderr: { on, setEncoding: setEncodingMock },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
-        if (event === 'exit') {
+        if (event === 'close') {
           cb(1);
         }
       }),
-    } as any);
+    } as unknown as ChildProcess);
     const execResult = exec.exec(command);
     await expect(execResult).rejects.toThrowError(/Command execution failed with exit code 1/);
     await expect(execResult).rejects.toThrowError(Error);
+    expect(setEncodingMock).toBeCalledWith('utf8');
   });
 
   test('should reject with an error when the process error event received', async () => {
@@ -146,24 +151,25 @@ describe('exec', () => {
       };
     });
 
-    const on: any = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
       if (event === 'data') {
         cb('');
       }
     }) as unknown as Readable;
     const error = new Error('Error message');
     vi.mocked(spawn).mockReturnValue({
-      stdout: { on, setEncoding: vi.fn() },
-      stderr: { on, setEncoding: vi.fn() },
+      stdout: { on, setEncoding: setEncodingMock },
+      stderr: { on, setEncoding: setEncodingMock },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: Error) => void) => {
         if (event === 'error') {
           cb(error);
         }
       }),
-    } as any);
+    } as unknown as ChildProcess);
     const execResult = exec.exec(command);
     await expect(execResult).rejects.toThrowError(/Failed to execute command: Error message/);
     await expect(execResult).rejects.toThrowError(Error);
+    expect(setEncodingMock).toBeCalledWith('utf8');
   });
 
   test('should reject with an error when the execution is cancelled on macOS and linux', async () => {
@@ -180,8 +186,8 @@ describe('exec', () => {
 
     const childProcessMock: unknown = {
       killed: false,
-      stdout: { on: vi.fn(), setEncoding: vi.fn() },
-      stderr: { on: vi.fn(), setEncoding: vi.fn() },
+      stdout: { on: vi.fn(), setEncoding: setEncodingMock },
+      stderr: { on: vi.fn(), setEncoding: setEncodingMock },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
         if (event === 'exit') {
           cb(0);
@@ -198,8 +204,9 @@ describe('exec', () => {
     const result = exec.exec(command, args, options);
     await expect(result).rejects.toThrowError(/Execution cancelled/);
     await expect(result).rejects.toThrowError(Error);
-    expect((childProcessMock as any).kill).toHaveBeenCalled();
+    expect((childProcessMock as unknown as ChildProcess).kill).toHaveBeenCalled();
     expect(options.logger.error).toHaveBeenCalledWith('Execution cancelled');
+    expect(setEncodingMock).toBeCalledWith('utf8');
   });
 
   test('should reject with an error when the callback called with error in admin mode on windows', async () => {
@@ -228,25 +235,25 @@ describe('exec', () => {
     const command = 'echo';
     const args = ['Hello, World!'];
 
-    const on: any = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
       if (event === 'data') {
         cb('Hello, World!');
       }
     }) as unknown as Readable;
     const spawnMock = vi.mocked(spawn).mockReturnValue({
-      stdout: { on, setEncoding: vi.fn() },
-      stderr: { on, setEncoding: vi.fn() },
+      stdout: { on, setEncoding: setEncodingMock },
+      stderr: { on, setEncoding: setEncodingMock },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
-        if (event === 'exit') {
+        if (event === 'close') {
           cb(0);
         }
       }),
-    } as any);
+    } as unknown as ChildProcess);
 
     const httpProxy = {
       isEnabled: vi.fn().mockReturnValue(true),
       proxy: {
-        httpProxy: '127.0.0.1:8888',
+        httpProxy: 'http://127.0.0.1:8888',
       },
     } as unknown as Proxy;
     const httpExec = new Exec(httpProxy);
@@ -258,31 +265,32 @@ describe('exec', () => {
     });
     expect(stdout).toBeDefined();
     expect(stdout).toContain('Hello, World!');
+    expect(setEncodingMock).toBeCalledWith('utf8');
   });
 
   test('should run the command and set HTTPS_PROXY', async () => {
     const command = 'echo';
     const args = ['Hello, World!'];
 
-    const on: any = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
       if (event === 'data') {
         cb('Hello, World!');
       }
     }) as unknown as Readable;
     const spawnMock = vi.mocked(spawn).mockReturnValue({
-      stdout: { on, setEncoding: vi.fn() },
-      stderr: { on, setEncoding: vi.fn() },
+      stdout: { on, setEncoding: setEncodingMock },
+      stderr: { on, setEncoding: setEncodingMock },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
-        if (event === 'exit') {
+        if (event === 'close') {
           cb(0);
         }
       }),
-    } as any);
+    } as unknown as ChildProcess);
 
     const httpsProxy = {
       isEnabled: vi.fn().mockReturnValue(true),
       proxy: {
-        httpsProxy: '127.0.0.1:8888',
+        httpsProxy: 'http://127.0.0.1:8888',
       },
     } as unknown as Proxy;
     const httpsExec = new Exec(httpsProxy);
@@ -294,26 +302,27 @@ describe('exec', () => {
     });
     expect(stdout).toBeDefined();
     expect(stdout).toContain('Hello, World!');
+    expect(setEncodingMock).toBeCalledWith('utf8');
   });
 
   test('should run the command and set NO_PROXY', async () => {
     const command = 'echo';
     const args = ['Hello, World!'];
 
-    const on: any = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
       if (event === 'data') {
         cb('Hello, World!');
       }
     }) as unknown as Readable;
     const spawnMock = vi.mocked(spawn).mockReturnValue({
-      stdout: { on, setEncoding: vi.fn() },
-      stderr: { on, setEncoding: vi.fn() },
+      stdout: { on, setEncoding: setEncodingMock },
+      stderr: { on, setEncoding: setEncodingMock },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
-        if (event === 'exit') {
+        if (event === 'close') {
           cb(0);
         }
       }),
-    } as any);
+    } as unknown as ChildProcess);
 
     const noProxy = {
       isEnabled: vi.fn().mockReturnValue(true),
@@ -328,6 +337,7 @@ describe('exec', () => {
     expect(spawnMock).toHaveBeenCalledWith(command, args, { env: expect.objectContaining({ NO_PROXY: '127.0.0.1' }) });
     expect(stdout).toBeDefined();
     expect(stdout).toContain('Hello, World!');
+    expect(setEncodingMock).toBeCalledWith('utf8');
   });
 
   test('should run the command with privileges on macOS', async () => {
@@ -336,7 +346,7 @@ describe('exec', () => {
 
     (util.isMac as Mock).mockReturnValue(true);
 
-    const on: any = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
       if (event === 'data') {
         cb('Hello, World!');
       }
@@ -345,11 +355,11 @@ describe('exec', () => {
       stdout: { on, setEncoding: vi.fn() },
       stderr: { on, setEncoding: vi.fn() },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
-        if (event === 'exit') {
+        if (event === 'close') {
           cb(0);
         }
       }),
-    } as any);
+    } as unknown as ChildProcess);
 
     const { stdout } = await exec.exec(command, args, { isAdmin: true });
 
@@ -372,7 +382,7 @@ describe('exec', () => {
 
     (util.isLinux as Mock).mockReturnValue(true);
 
-    const on: any = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
       if (event === 'data') {
         cb('Hello, World!');
       }
@@ -381,11 +391,11 @@ describe('exec', () => {
       stdout: { on, setEncoding: vi.fn() },
       stderr: { on, setEncoding: vi.fn() },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
-        if (event === 'exit') {
+        if (event === 'close') {
           cb(0);
         }
       }),
-    } as any);
+    } as unknown as ChildProcess);
 
     const { stdout } = await exec.exec(command, args, { isAdmin: true });
 
@@ -405,7 +415,7 @@ describe('exec', () => {
 
     (util.isLinux as Mock).mockReturnValue(true);
 
-    const on: any = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
       if (event === 'data') {
         cb('Hello, World!');
       }
@@ -414,11 +424,11 @@ describe('exec', () => {
       stdout: { on, setEncoding: vi.fn() },
       stderr: { on, setEncoding: vi.fn() },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
-        if (event === 'exit') {
+        if (event === 'close') {
           cb(0);
         }
       }),
-    } as any);
+    } as unknown as ChildProcess);
 
     // emulate flatpak environment
     const { stdout } = await exec.exec(command, args, { env: { FLATPAK_ID: 'true' }, isAdmin: true });
@@ -442,7 +452,7 @@ describe('exec', () => {
       callback(undefined);
     });
 
-    const on: any = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
       if (event === 'data') {
         cb('Hello, World!');
       }
@@ -451,11 +461,11 @@ describe('exec', () => {
       stdout: { on, setEncoding: vi.fn() },
       stderr: { on, setEncoding: vi.fn() },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
-        if (event === 'exit') {
+        if (event === 'close') {
           cb(0);
         }
       }),
-    } as any);
+    } as unknown as ChildProcess);
 
     await exec.exec(command, args, { isAdmin: true });
 
@@ -468,14 +478,20 @@ describe('exec', () => {
     const command = 'echo';
     const args = ['Hello, World!'];
     (util.isWindows as Mock).mockReturnValue(true);
-    let options: any;
+    let options:
+      | {
+          env?: { [p: string]: string };
+        }
+      | undefined;
 
-    (sudo.exec as Mock).mockImplementation((_command, _options, callback) => {
-      callback(undefined);
-      options = _options;
+    vi.mocked(sudo.exec).mockImplementation((_command, _options, callback) => {
+      callback?.();
+      if (typeof _options === 'object' && 'env' in _options) {
+        options = _options;
+      }
     });
 
-    const on: any = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
       if (event === 'data') {
         cb('Hello, World!');
       }
@@ -484,11 +500,11 @@ describe('exec', () => {
       stdout: { on, setEncoding: vi.fn() },
       stderr: { on, setEncoding: vi.fn() },
       on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
-        if (event === 'exit') {
+        if (event === 'close') {
           cb(0);
         }
       }),
-    } as any);
+    } as unknown as ChildProcess);
 
     await exec.exec(command, args, { isAdmin: true, env: { 'MY(VAR': 'myvalue' } });
 
@@ -496,8 +512,47 @@ describe('exec', () => {
     expect(spawnMock).not.toHaveBeenCalled();
     expect(sudo.exec).toBeCalledWith('echo Hello, World!', expect.anything(), expect.anything());
     expect(options).toBeDefined();
-    expect(options.env).toBeDefined();
-    expect(options.env['MY(VAR']).not.toBeDefined();
+    expect(options?.env).toBeDefined();
+    expect(options?.env?.['MY(VAR']).not.toBeDefined();
+  });
+
+  test('should run the command and set specific encoding', async () => {
+    const command = 'echo';
+    const args = ['Hello, World!'];
+
+    (util.isLinux as Mock).mockReturnValue(true);
+
+    const on = vi.fn().mockImplementationOnce((event: string, cb: (arg0: string) => string) => {
+      if (event === 'data') {
+        cb('Hello, World!');
+      }
+    }) as unknown as Readable;
+    const spawnMock = vi.mocked(spawn).mockReturnValue({
+      stdout: { on, setEncoding: setEncodingMock },
+      stderr: { on, setEncoding: setEncodingMock },
+      on: vi.fn().mockImplementation((event: string, cb: (arg0: number) => void) => {
+        if (event === 'close') {
+          cb(0);
+        }
+      }),
+    } as unknown as ChildProcess);
+
+    // emulate flatpak environment
+    const { stdout } = await exec.exec(command, args, {
+      env: { FLATPAK_ID: 'true' },
+      isAdmin: true,
+      encoding: 'utf16le',
+    });
+
+    // caller should contains the cwd provided
+    expect(spawnMock).toHaveBeenCalledWith(
+      'flatpak-spawn',
+      expect.arrayContaining(['--host', 'pkexec', 'echo', 'Hello, World!']),
+      expect.anything(),
+    );
+    expect(stdout).toBeDefined();
+    expect(stdout).toContain('Hello, World!');
+    expect(setEncodingMock).toBeCalledWith('utf16le');
   });
 });
 
@@ -512,17 +567,17 @@ describe('getInstallationPath', () => {
   let originalPath: string | undefined;
 
   beforeEach(() => {
-    originalPath = process.env.PATH;
+    originalPath = process.env['PATH'];
   });
 
   afterEach(() => {
-    process.env.PATH = originalPath;
+    process.env['PATH'] = originalPath;
   });
 
   test('should return the installation path for Windows', () => {
     vi.spyOn(util, 'isWindows').mockImplementation(() => true);
     vi.spyOn(util, 'isMac').mockImplementation(() => false);
-    process.env.PATH = '';
+    process.env['PATH'] = '';
 
     const path = getInstallationPath();
 
@@ -532,7 +587,7 @@ describe('getInstallationPath', () => {
   test('should return the installation path for Windows with pre-filled PATH', () => {
     vi.spyOn(util, 'isWindows').mockImplementation(() => true);
     vi.spyOn(util, 'isMac').mockImplementation(() => false);
-    process.env.PATH = 'c:\\Local';
+    process.env['PATH'] = 'c:\\Local';
 
     const path = getInstallationPath();
 
@@ -542,7 +597,7 @@ describe('getInstallationPath', () => {
   test('should return the installation path for Windows with defined param', () => {
     vi.spyOn(util, 'isWindows').mockImplementation(() => true);
     vi.spyOn(util, 'isMac').mockImplementation(() => false);
-    process.env.PATH = 'c:\\Local';
+    process.env['PATH'] = 'c:\\Local';
 
     const path = getInstallationPath('c:\\Directory');
 
@@ -553,28 +608,28 @@ describe('getInstallationPath', () => {
     vi.spyOn(util, 'isWindows').mockImplementation(() => false);
     vi.spyOn(util, 'isMac').mockImplementation(() => true);
 
-    process.env.PATH = '/usr/bin';
+    process.env['PATH'] = '/usr/bin';
 
     const path = getInstallationPath();
 
-    expect(path).toBe(`/usr/bin:${macosExtraPath}`);
+    expect(path).toBe(`${macosExtraPath}:/usr/bin`);
   });
 
   test('should return the installation path for macOS with defined param', () => {
     vi.spyOn(util, 'isWindows').mockImplementation(() => false);
     vi.spyOn(util, 'isMac').mockImplementation(() => true);
 
-    process.env.PATH = '/usr/bin';
+    process.env['PATH'] = '/usr/bin';
 
     const path = getInstallationPath('/usr/other');
 
-    expect(path).toBe(`/usr/other:${macosExtraPath}`);
+    expect(path).toBe(`${macosExtraPath}:/usr/other`);
   });
 
   test('should return the installation path for other platforms', () => {
     vi.spyOn(util, 'isWindows').mockImplementation(() => false);
     vi.spyOn(util, 'isMac').mockImplementation(() => false);
-    process.env.PATH = '/usr/bin'; // Example PATH for other platforms
+    process.env['PATH'] = '/usr/bin'; // Example PATH for other platforms
 
     const path = getInstallationPath();
 
@@ -584,7 +639,7 @@ describe('getInstallationPath', () => {
   test('should return the installation path for other platforms with defined param', () => {
     vi.spyOn(util, 'isWindows').mockImplementation(() => false);
     vi.spyOn(util, 'isMac').mockImplementation(() => false);
-    process.env.PATH = '/usr/bin'; // Example PATH for other platforms
+    process.env['PATH'] = '/usr/bin'; // Example PATH for other platforms
 
     const path = getInstallationPath('/usr/other');
 

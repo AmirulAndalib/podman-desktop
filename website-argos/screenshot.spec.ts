@@ -16,9 +16,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 
-import * as fs from 'fs';
-import { test } from '@playwright/test';
+import * as fs from 'node:fs';
+
 import { argosScreenshot } from '@argos-ci/playwright';
+import { test } from '@playwright/test';
+
 import { extractSitemapPathnames, pathnameToArgosName } from './utils';
 
 // Constants
@@ -30,16 +32,23 @@ const stylesheet = fs.readFileSync(stylesheetPath).toString();
 // Wait for hydration, requires Docusaurus v2.4.3+
 // Docusaurus adds a <html data-has-hydrated="true"> once hydrated
 // See https://github.com/facebook/docusaurus/pull/9256
-function waitForDocusaurusHydration() {
+function waitForDocusaurusHydration(): boolean {
   return document.documentElement.dataset.hasHydrated === 'true';
 }
 
-function screenshotPathname(pathname: string) {
+function screenshotPathname(pathname: string): void {
   test(`pathname ${pathname}`, async ({ page }) => {
     test.slow();
     const url = siteUrl + pathname;
     await page.goto(url);
     await page.waitForFunction(waitForDocusaurusHydration);
+
+    // for downloads page, wait for the version being fetched
+    if (pathname.includes('/downloads')) {
+      // wait for the version being fetched during 5seconds using async setTimeout
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+
     await page.addStyleTag({ content: stylesheet });
     await argosScreenshot(page, pathnameToArgosName(pathname));
   });

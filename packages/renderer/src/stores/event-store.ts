@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (C) 2023 Red Hat, Inc.
+ * Copyright (C) 2023-2024 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 
-// eslint-disable-next-line import/no-duplicates
-import type { Writable } from 'svelte/store';
+import humanizeDuration from 'humanize-duration';
 // eslint-disable-next-line import/no-duplicates
 import type { ComponentType } from 'svelte';
+// eslint-disable-next-line import/no-duplicates
+import type { Writable } from 'svelte/store';
 
-import { addStore, updateStore } from './event-store-manager';
-import humanizeDuration from 'humanize-duration';
 import DesktopIcon from '../lib/images/DesktopIcon.svelte';
+import { addStore, updateStore } from './event-store-manager';
 
 // 1.5 SECOND for DEBOUNCE and 5s for THROTTLE
 const SECOND = 1000;
@@ -76,11 +76,29 @@ export class EventStore<T> {
 
   constructor(
     private name: string,
+
+    // The store to actually update / return the data
     private store: Writable<T>,
+
+    // This is the "check" function that will be called to check if we need to update the store
+    // this is good for checking to see if all extensions have started or waiting for a specific event
+    // to occur before proceeding
     private checkForUpdate: (eventName: string, args?: unknown[]) => Promise<boolean>,
+
+    // The list of window events and listeners to listen for to trigger an update, for example:
+    // Window event: 'extension-started'
+    // Window listener: 'extensions-already-started''
     private windowEvents: string[],
     private windowListeners: string[],
+
+    // The main "updater" function that will be called to update the store.
+    // For example, you can pass in a custom function such as "grabAllPods"
+    // or a function with parameters such as "fetchPodsForNamespace(namespace: string)"
+    // or even a simple window call such as "window.listPods()"
+    // Whatever is returned from the "updater" function will be set to the writeable store above.
     private updater: (...args: unknown[]) => Promise<T>,
+
+    // Optional icon component to display in the UI
     private iconComponent?: ComponentType,
   ) {
     if (!iconComponent) {
@@ -88,7 +106,7 @@ export class EventStore<T> {
     }
   }
 
-  protected updateEvent(eventStoreInfo: EventStoreInfo, event: EventStoreInfoEvent) {
+  protected updateEvent(eventStoreInfo: EventStoreInfo, event: EventStoreInfoEvent): void {
     // update the info object
     eventStoreInfo.bufferEvents.push(event);
     if (eventStoreInfo.bufferEvents.length > 100) {
@@ -134,7 +152,7 @@ export class EventStore<T> {
     } finally {
       this.updateEvent(eventStoreInfo, {
         name: eventName,
-        args: args || [],
+        args: args ?? [],
         date: Date.now(),
         skipped: !needUpdate,
         length: numberOfResults,
@@ -178,11 +196,11 @@ export class EventStore<T> {
     // for throttling every 5s if not already done
     let timeoutThrottle: NodeJS.Timeout | undefined;
 
-    const update = async (eventName: string, args?: unknown[]) => {
+    const update = async (eventName: string, args?: unknown[]): Promise<void> => {
       const needUpdate = await this.checkForUpdate(eventName, args);
 
       // method that do the update
-      const doUpdate = async () => {
+      const doUpdate = async (): Promise<void> => {
         await this.performUpdate(needUpdate, eventStoreInfo, eventName, args);
       };
 
@@ -198,7 +216,7 @@ export class EventStore<T> {
 
         this.updateEvent(eventStoreInfo, {
           name: `debounce-${eventName}`,
-          args: args || [],
+          args: args ?? [],
           date: Date.now(),
           skipped: true,
           length: 0,
@@ -240,8 +258,10 @@ export class EventStore<T> {
     };
 
     this.windowEvents.forEach(eventName => {
-      window.events?.receive(eventName, async (args?: unknown[]) => {
-        await update(eventName, args);
+      window.events?.receive(eventName, (args?: unknown) => {
+        update(eventName, args as unknown[]).catch((error: unknown) => {
+          console.error(`Failed to update ${this.name}`, error);
+        });
       });
     });
 

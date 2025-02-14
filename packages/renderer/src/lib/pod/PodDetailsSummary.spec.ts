@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (C) 2023 Red Hat, Inc.
+ * Copyright (C) 2023-2025 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,25 @@
  ***********************************************************************/
 
 import '@testing-library/jest-dom/vitest';
-import { test, vi, expect, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/svelte';
+
 import type {
-  V1Pod,
+  CoreV1Event,
+  V1ConfigMapVolumeSource,
   V1Container,
+  V1PersistentVolumeClaimVolumeSource,
+  V1Pod,
   V1PodSpec,
   V1PodStatus,
-  V1Volume,
   V1SecretVolumeSource,
-  V1ConfigMapVolumeSource,
-  V1PersistentVolumeClaimVolumeSource,
+  V1Volume,
 } from '@kubernetes/client-node';
+import { render, screen, waitFor, within } from '@testing-library/svelte';
+import { writable } from 'svelte/store';
+import { beforeEach, expect, test, vi } from 'vitest';
+
+import * as kubeContextStore from '/@/stores/kubernetes-contexts-state';
+
+import * as kubePodDetailsSummary from '../kube/KubePodDetailsSummary.svelte';
 import PodDetailsSummary from './PodDetailsSummary.svelte';
 import type { PodInfoUI } from './PodInfoUI';
 
@@ -124,27 +131,35 @@ const fakePodInfoUI: PodInfoUI = {
   kind: 'kubernetes',
 };
 
-const kubernetesGetCurrentNamespaceMock = vi.fn();
-const kubernetesReadNamespacedPodMock = vi.fn();
+const fakePodV1: V1Pod = {
+  metadata: {
+    uid: '12345678',
+    name: 'fakepod',
+  },
+};
+
+vi.mock('/@/stores/kubernetes-contexts-state', async () => {
+  return {
+    kubernetesCurrentContextEvents: vi.fn(),
+  };
+});
 
 beforeEach(() => {
-  Object.defineProperty(window, 'kubernetesGetCurrentNamespace', {
-    value: kubernetesGetCurrentNamespaceMock,
-  });
-  Object.defineProperty(window, 'kubernetesReadNamespacedPod', {
-    value: kubernetesReadNamespacedPodMock,
-  });
+  vi.resetAllMocks();
 });
 
 test('Render with a kubernetes object', async () => {
   // Mock the values
-  kubernetesGetCurrentNamespaceMock.mockResolvedValue('default');
-  kubernetesReadNamespacedPodMock.mockResolvedValue(fakePod);
+  vi.mocked(window.kubernetesGetCurrentNamespace).mockResolvedValue('default');
+  vi.mocked(window.kubernetesReadNamespacedPod).mockResolvedValue(fakePod);
 
-  render(PodDetailsSummary, { pod: fakePodInfoUI });
+  const eventsStore = writable<CoreV1Event[]>([]);
+  vi.mocked(kubeContextStore).kubernetesCurrentContextEvents = eventsStore;
+
+  render(PodDetailsSummary, { pod: JSON.parse(JSON.stringify(fakePodInfoUI)) });
 
   // Wait for the mock to be called as it sometimes takes a few ms
-  await waitFor(() => expect(kubernetesReadNamespacedPodMock).toHaveBeenCalled());
+  await waitFor(() => expect(vi.mocked(window.kubernetesReadNamespacedPod)).toHaveBeenCalled());
 
   // Test that 'fake-secret' shows up
   expect(screen.getByText('fake-secret')).toBeInTheDocument();
@@ -152,12 +167,12 @@ test('Render with a kubernetes object', async () => {
 
 test('Render the pod information when pod object is kind == podman', async () => {
   // Mock the values
-  kubernetesGetCurrentNamespaceMock.mockResolvedValue('default');
-  kubernetesReadNamespacedPodMock.mockResolvedValue(undefined);
+  vi.mocked(window.kubernetesGetCurrentNamespace).mockResolvedValue('default');
+  vi.mocked(window.kubernetesReadNamespacedPod).mockResolvedValue(undefined);
 
-  const fakePodInfo = fakePodInfoUI;
+  const fakePodInfo = JSON.parse(JSON.stringify(fakePodInfoUI));
   fakePodInfo.kind = 'podman';
-  render(PodDetailsSummary, { pod: fakePodInfo });
+  render(PodDetailsSummary, { pod: JSON.parse(JSON.stringify(fakePodInfo)) });
 
   // Expect the pod name, id, container.Names and container.Id to show
   expect(screen.getByText('fakepod')).toBeInTheDocument();
@@ -166,4 +181,100 @@ test('Render the pod information when pod object is kind == podman', async () =>
   // Expect 'fakecontainername' and 'fakecontainer' to show
   expect(screen.getByText('fakecontainername')).toBeInTheDocument();
   expect(screen.getByText('fakecontainer')).toBeInTheDocument();
+});
+
+test('Expect KubePodDetailsSummary to be called with related events only', async () => {
+  vi.mocked(window.kubernetesGetCurrentNamespace).mockResolvedValue('default');
+  vi.mocked(window.kubernetesReadNamespacedPod).mockResolvedValue(fakePodV1);
+  const kubePodDetailsSummarySpy = vi.spyOn(kubePodDetailsSummary, 'default');
+  // mock object stores
+  const events: CoreV1Event[] = [
+    {
+      metadata: {
+        name: 'event1',
+      },
+      involvedObject: { uid: '12345678' },
+    },
+    {
+      metadata: {
+        name: 'event2',
+      },
+      involvedObject: { uid: '12345678' },
+    },
+    {
+      metadata: {
+        name: 'event3',
+      },
+      involvedObject: { uid: '1234' },
+    },
+  ];
+  const eventsStore = writable<CoreV1Event[]>(events);
+  vi.mocked(kubeContextStore).kubernetesCurrentContextEvents = eventsStore;
+
+  render(PodDetailsSummary, { pod: fakePodInfoUI });
+  await waitFor(() => {
+    expect(kubePodDetailsSummarySpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        events: [events[0], events[1]],
+      }),
+    );
+  });
+});
+
+test('expect events to be redisplayed when updated', async () => {
+  vi.mocked(window.kubernetesGetCurrentNamespace).mockResolvedValue('default');
+  vi.mocked(window.kubernetesReadNamespacedPod).mockResolvedValue(fakePodV1);
+  const kubePodDetailsSummarySpy = vi.spyOn(kubePodDetailsSummary, 'default');
+  // mock object stores
+  const events: CoreV1Event[] = [
+    {
+      metadata: {
+        name: 'event1',
+      },
+      involvedObject: { uid: '12345678' },
+    },
+    {
+      metadata: {
+        name: 'event2',
+      },
+      involvedObject: { uid: '12345678' },
+    },
+    {
+      metadata: {
+        name: 'event3',
+      },
+      involvedObject: { uid: '1234' },
+    },
+  ];
+  const eventsStore = writable<CoreV1Event[]>(events);
+  vi.mocked(kubeContextStore).kubernetesCurrentContextEvents = eventsStore;
+
+  render(PodDetailsSummary, { pod: fakePodInfoUI });
+  await waitFor(() => {
+    expect(kubePodDetailsSummarySpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        events: [events[0], events[1]],
+      }),
+    );
+  });
+
+  const table = screen.getByRole('table', { name: 'events' });
+  expect(table).toBeInTheDocument();
+  expect(within(table).getAllByRole('row').length).toBe(3); // header + 2 events
+
+  eventsStore.set([
+    ...events,
+    {
+      metadata: {
+        name: 'event4',
+      },
+      involvedObject: { uid: '12345678' },
+    },
+  ]);
+
+  await waitFor(() => {
+    expect(within(table).getAllByRole('row').length).toBe(4); // header + 3 events
+  });
 });

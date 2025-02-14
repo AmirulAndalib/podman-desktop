@@ -1,8 +1,11 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import MonacoEditor from '../editor/MonacoEditor.svelte';
-import type { PodInfoUI } from './PodInfoUI';
 import { stringify } from 'yaml';
+
+import MonacoEditor from '../editor/MonacoEditor.svelte';
+import KubeEditYAML from '../kube/KubeEditYAML.svelte';
+import type { PodInfoUI } from './PodInfoUI';
+
 export let pod: PodInfoUI;
 
 let kubeDetails: string;
@@ -25,5 +28,9 @@ onMount(async () => {
 </script>
 
 {#if kubeDetails}
-  <MonacoEditor content="{kubeDetails}" language="yaml" />
+  {#if pod.kind === 'podman'}
+    <MonacoEditor content={kubeDetails} language="yaml" />
+  {:else}
+    <KubeEditYAML content={kubeDetails} />
+  {/if}
 {/if}

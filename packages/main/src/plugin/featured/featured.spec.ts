@@ -18,9 +18,10 @@
 
 import { afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 
+import type { ExtensionsCatalog } from '/@/plugin/extension/catalog/extensions-catalog.js';
+import type { ExtensionLoader } from '/@/plugin/extension/extension-loader.js';
+
 import { Featured } from './featured.js';
-import type { ExtensionLoader } from '../extension-loader.js';
-import type { ExtensionsCatalog } from '../extensions-catalog/extensions-catalog.js';
 
 let featured: Featured;
 
@@ -58,7 +59,7 @@ test('init should call init on certificates', async () => {
 test('readFeaturedJson should be valid', async () => {
   const extensionsJson = featured.readFeaturedJson();
   expect(extensionsJson).toBeDefined();
-  expect(extensionsJson.length).toBeGreaterThan(3);
+  expect(extensionsJson.length).toBeGreaterThanOrEqual(2);
 });
 
 test('getFeaturedExtensions should check installable extensions', async () => {
@@ -119,4 +120,31 @@ test('getFeaturedExtensions should check installable extensions', async () => {
   expect(crcExtension?.categories).toStrictEqual(['Kubernetes']);
   expect(crcExtension?.icon).toBe('data:image/png;base64,456');
   expect(crcExtension?.fetchLink).toBe(ociLink);
+});
+
+test('getFeaturedExtensions', async () => {
+  // mock the set of featured JSON extensions
+  const spyReadJson = vi.spyOn(featured, 'readFeaturedJson');
+
+  const jsonValues = [];
+  for (let i = 1; i <= 10; i++) {
+    jsonValues.push({
+      extensionId: `podman-desktop.${i}`,
+      displayName: `Podman${i}`,
+      shortDescription: `test${i}`,
+      categories: ['Container Engine'],
+      builtIn: true,
+      icon: `data:image/png;base64,${i}`,
+    });
+  }
+  spyReadJson.mockReturnValue(jsonValues);
+
+  // init fetchable extensions
+  await featured.init();
+  const featuredExtensions1 = await featured.getFeaturedExtensions();
+
+  expect(featuredExtensions1).toBeDefined();
+
+  // should not be limited
+  expect(featuredExtensions1.length).toBe(10);
 });

@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (C) 2023 Red Hat, Inc.
+ * Copyright (C) 2023-2024 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,15 +21,28 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 
 import '@testing-library/jest-dom/vitest';
-import { test, expect, vi, beforeAll, describe } from 'vitest';
-import { render, screen } from '@testing-library/svelte';
-import PreferencesRegistriesEditing from './PreferencesRegistriesEditing.svelte';
-import { registriesInfos } from '../../stores/registries';
-import type { Registry } from '@podman-desktop/api';
 
-beforeAll(() => {
+import type { Registry } from '@podman-desktop/api';
+import { waitFor } from '@testing-library/dom';
+import { render, screen } from '@testing-library/svelte';
+import { default as userEvent } from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+
+import { registriesInfos } from '../../stores/registries';
+import PreferencesRegistriesEditing from './PreferencesRegistriesEditing.svelte';
+
+beforeEach(() => {
   (window as any).window.ddExtensionInstall = vi.fn().mockResolvedValue(undefined);
   (window as any).window.getImageRegistryProviderNames = vi.fn().mockResolvedValue(undefined);
+  (window as any).window.showMessageBox = vi.fn();
+  (window as any).window.checkImageCredentials = vi.fn();
+  (window as any).window.createImageRegistry = vi.fn().mockImplementation((...args: any[]) => {
+    console.log(args);
+  });
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
 });
 
 describe('PreferencesRegistriesEditing', () => {
@@ -62,18 +75,53 @@ describe('PreferencesRegistriesEditing', () => {
     expect(button).toBeEnabled();
   });
 
-  test('Expect that adding a registry enables a form, and Login button is initially disabled', async () => {
+  test('Expect that adding a registry enables a form, and Add button is initially disabled', async () => {
     render(PreferencesRegistriesEditing, { showNewRegistryForm: true });
 
     const button = screen.getByRole('button', { name: 'Add registry' });
     expect(button).toBeInTheDocument();
     expect(button).toBeDisabled();
 
-    const entry = screen.getByPlaceholderText('URL (HTTPS only)');
+    const entry = screen.getByPlaceholderText('https://registry.io');
     expect(entry).toBeInTheDocument();
 
-    const loginButton = screen.getByRole('button', { name: 'Login' });
+    const loginButton = screen.getByRole('button', { name: 'Add' });
     expect(loginButton).toBeInTheDocument();
     expect(loginButton).toBeDisabled();
+  });
+
+  test('Expect that adding registry using self signed or not verifiable certificate triggers confirmation request', async () => {
+    render(PreferencesRegistriesEditing);
+    const addRegistryBtn = screen.getByRole('button', { name: 'Add registry' });
+    await userEvent.click(addRegistryBtn);
+    const button = screen.getByRole('button', { name: 'Add' });
+    const password = screen.getByPlaceholderText('password');
+    const username = screen.getByPlaceholderText('username');
+    const url = screen.getByPlaceholderText('https://registry.io');
+    expect(button).toBeVisible();
+    expect(button).toBeDisabled();
+    expect(password).toBeVisible();
+    expect(username).toBeVisible();
+    expect(url).toBeVisible();
+    await userEvent.type(url, 'https://registry.host');
+    await userEvent.type(username, 'username');
+    await userEvent.type(password, 'password');
+    expect(button).toBeEnabled();
+    vi.mocked(window.checkImageCredentials)
+      .mockRejectedValueOnce(new Error('unable to verify the first certificate'))
+      .mockRejectedValueOnce(new Error('self signed certificate in certificate chain'));
+    vi.mocked(window.showMessageBox).mockResolvedValueOnce({ response: 1 }).mockResolvedValueOnce({ response: 0 });
+    await userEvent.click(button);
+    await waitFor(() => expect(button).toBeEnabled());
+    await userEvent.click(button);
+    expect(window.showMessageBox).toHaveBeenCalledTimes(2);
+    expect(window.createImageRegistry).toHaveBeenCalledOnce();
+    expect(window.createImageRegistry).toHaveBeenLastCalledWith(undefined, {
+      source: undefined,
+      serverUrl: 'https://registry.host',
+      username: 'username',
+      secret: 'password',
+      insecure: true,
+    });
   });
 });

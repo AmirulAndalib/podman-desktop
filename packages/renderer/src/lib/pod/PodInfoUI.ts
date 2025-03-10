@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (C) 2022 Red Hat, Inc.
+ * Copyright (C) 2022-2025 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,17 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 
-export enum PodGroupInfoTypeUI {
-  KUBERNETES = 'kubernetes',
-  PODMAN = 'podman',
-}
 export interface PodInfoContainerUI {
   Id: string;
   Names: string;
+
+  // This is a bit odd at the moment as we use the same PodInfoContainerUI for both Kubernetes and Podman Pods.
+  // For PODS:
+  // Status will either be: stopped, running, paused, exited, dead, created, degraded
+  // https://docs.podman.io/en/latest/_static/api.html#tag/pods/operation/PodListLibpod
+  // For Kubernetes:
+  // Status will either be: running, waiting, terminated
+  // see the toContainerStatus function in kubernetes-client.ts
   Status: string;
 }
 
@@ -39,5 +43,6 @@ export interface PodInfoUI {
   containers: PodInfoContainerUI[];
   actionInProgress?: boolean;
   actionError?: string;
-  kind: 'kubernetes' | 'podman';
+  node?: string;
+  namespace?: string;
 }

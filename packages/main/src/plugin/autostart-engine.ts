@@ -16,10 +16,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 
-import { Disposable } from './types/disposable.js';
+import { CONFIGURATION_DEFAULT_SCOPE, CONFIGURATION_ONBOARDING_SCOPE } from '/@api/configuration/constants.js';
+
 import type { ConfigurationRegistry, IConfigurationNode } from './configuration-registry.js';
 import type { ProviderRegistry } from './provider-registry.js';
-import { CONFIGURATION_DEFAULT_SCOPE, CONFIGURATION_ONBOARDING_SCOPE } from './configuration-registry-constants.js';
+import { Disposable } from './types/disposable.js';
 
 export class AutostartEngine {
   private providerExtension = new Map<string, string>();
@@ -31,22 +32,13 @@ export class AutostartEngine {
 
   registerProvider(extensionId: string, extensionDisplayName: string, providerInternalId: string): Disposable {
     this.providerExtension.set(providerInternalId, extensionId);
-    const autostartConfiguration = this.registerProviderConfiguration(extensionId, extensionDisplayName);
+    this.registerProviderConfiguration(extensionId, extensionDisplayName);
     return Disposable.create(() => {
       this.providerExtension.delete(providerInternalId);
-      this.configurationRegistry.deregisterConfigurations([autostartConfiguration]);
     });
   }
 
   private registerProviderConfiguration(extensionId: string, extensionDisplayName: string): IConfigurationNode {
-    const extensionConfiguration = this.configurationRegistry.getConfiguration(`preferences.${extensionId}`);
-    let autostart = extensionConfiguration.get<boolean>('engine.autostart');
-    // if there is no configuration set, we try to retrieve the value of the old deprecated preferences.engine.autostart setting
-    if (autostart === undefined) {
-      const autoStartConfigurationGlobal = this.configurationRegistry.getConfiguration('preferences.engine');
-      autostart = autoStartConfigurationGlobal.get<boolean>('autostart');
-    }
-
     const autoStartConfigurationNode: IConfigurationNode = {
       id: `preferences.${extensionId}.engine.autostart`,
       title: `Autostart ${extensionDisplayName} engine`,
@@ -58,7 +50,7 @@ export class AutostartEngine {
         [`preferences.${extensionId}.engine.autostart`]: {
           description: `Autostart ${extensionDisplayName} engine when launching Podman Desktop`,
           type: 'boolean',
-          default: autostart !== undefined ? autostart : true,
+          default: true,
           scope: [CONFIGURATION_DEFAULT_SCOPE, CONFIGURATION_ONBOARDING_SCOPE],
         },
       },
@@ -72,7 +64,8 @@ export class AutostartEngine {
     this.providerExtension.forEach((extensionId, providerInternalId) => {
       // grab value
       const autoStartConfiguration = this.configurationRegistry.getConfiguration(`preferences.${extensionId}`);
-      const autostart = autoStartConfiguration.get<boolean>('engine.autostart');
+      // if there is no value in the config, we use the default true value
+      const autostart = autoStartConfiguration.get<boolean>('engine.autostart', true);
       if (autostart) {
         console.log(`Autostarting ${extensionId} container engine`);
         // send autostart
@@ -83,7 +76,7 @@ export class AutostartEngine {
 
       // start the engine if we toggle the property
       this.configurationRegistry.onDidChangeConfiguration(async e => {
-        if (e.key === `${extensionId}.engine.autostart` && e.value === true) {
+        if (e.key === `preferences.${extensionId}.engine.autostart` && e.value === true) {
           await this.providerRegistry.runAutostart(providerInternalId);
         }
       });

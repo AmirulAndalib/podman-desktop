@@ -16,18 +16,19 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import '@testing-library/jest-dom/vitest';
+
 import { beforeAll, test } from 'vitest';
-import { verifyStatus } from './ProviderStatusTestHelper.spec';
+
 import ProviderReady from '/@/lib/dashboard/ProviderReady.svelte';
+
+import { verifyStatus } from './ProviderStatusTestHelper.spec';
 
 // fake the window.events object
 beforeAll(() => {
   (window.events as unknown) = {
-    receive: (_channel: string, func: any) => {
-      func();
+    receive: (_channel: string, func: unknown): void => {
+      (func as () => void)();
     },
   };
 });

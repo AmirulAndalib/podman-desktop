@@ -18,8 +18,8 @@ With Podman Desktop, you can configure access to your Developer Sandbox instance
 
 #### Procedure
 
-1. Install the _Developer Sandbox_ extension: go to **Dashboard**, and click **Developer Sandbox <icon icon="fa-solid fa-download" size="lg" />**.
-1. Go to **<icon icon="fa-solid fa-cog" size="lg" /> Settings > Resources**.
+1. Install the _Developer Sandbox_ extension: go to **Dashboard**, and click **Developer Sandbox <Icon icon="fa-solid fa-download" size="lg" />**.
+1. Go to **<Icon icon="fa-solid fa-cog" size="lg" /> Settings > Resources**.
 1. In the **Developer Sandbox** tile, click **Create new**.
 1. In the **Create a Developer Sandbox** screen, click **Log into Developer Sandbox**.
 1. In the **Open external website** dialog, click **Yes**.
@@ -38,11 +38,11 @@ With Podman Desktop, you can configure access to your Developer Sandbox instance
 
 #### Verification
 
-1. On the **<icon icon="fa-solid fa-cog" size="lg" /> Settings > Resources** screen, your Developer Sandbox is running.
+1. On the **<Icon icon="fa-solid fa-cog" size="lg" /> Settings > Resources** screen, your Developer Sandbox is running.
 
    ![Developer Sandbox is running](img/resources-developer-sandbox-running.png)
 
-1. [Select your Developer Sandbox in the Podman Desktop tray](/docs/kubernetes/viewing-and-selecting-current-kubernete-context)
+1. [Select your Developer Sandbox in the Podman Desktop tray](/docs/kubernetes/viewing-and-selecting-current-kubernetes-context)
 1. Run basic tasks such as:
-   - [Deploying a container](/docs/kubernetes/deploying-a-container-to-kubernetes)
+   - [Deploying a container](/docs/kubernetes/deploying-a-pod-to-kubernetes)
    - [Deploying a pod](/docs/kubernetes/deploying-a-pod-to-kubernetes)

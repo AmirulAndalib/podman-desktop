@@ -1,6 +1,7 @@
 {
+  "extends": "@tsconfig/strictest/tsconfig.json",
   "compilerOptions": {
-    "module": "node16",
+    "module": "NodeNext",
     "target": "esnext",
     "sourceMap": false,
     "moduleResolution": "node16",
@@ -9,13 +10,15 @@
     "resolveJsonModule": true,
     "strict": true,
     "isolatedModules": true,
+    "exactOptionalPropertyTypes": false,
 
     "types": ["node"],
 
     "baseUrl": ".",
     "paths": {
-      "/@/*": ["./src/*"]
+      "/@/*": ["./src/*"],
+      "/@api/*": ["../api/src/*"]
     }
   },
-  "include": ["src/**/*.ts", "../../types/**/*.d.ts"]
+  "include": ["src/**/*.ts", "../../types/**/*.d.ts", "../api/src/**/*.ts"]
 }

@@ -1,0 +1,23 @@
+packages:
+  - 'packages/*'
+  - 'extensions/*'
+  - 'extensions/*/packages/*'
+  - 'storybook'
+  - 'website'
+  - 'website-argos'
+  - 'tools'
+  - 'tests/*'
+  - 'scripts'
+onlyBuiltDependencies:
+  - '@biomejs/biome'
+  - core-js
+  - core-js-pure
+  - cpu-features
+  - electron
+  - esbuild
+  - msw
+  - protobufjs
+  - sharp
+  - ssh2
+  - svelte-preprocess
+  - win-ca
